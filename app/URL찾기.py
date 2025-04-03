@@ -74,3 +74,34 @@ def get_latest_video_url(channel_url, title_keyword, content_type="videos"):
 
     finally:
         driver.quit()
+
+""""""
+if __name__ == "__main__":
+
+    channel = "https://www.youtube.com/@NBCNews"
+    keyword = "Nightly News Full Episode"
+    content_type = "videos"  # 'videos' 또는 'streams' 선택 가능
+    url = get_latest_video_url(channel, keyword, content_type)
+    if url:
+        print("Latest Matching Video URL:", url)
+    else:
+        print("No matching video found.")
+
+
+    channel = "https://www.youtube.com/@tbsnewsdig"
+    keyword = "【LIVE】朝のニュース（Japan News Digest Live）最新情報など｜TBS NEWS DIG"
+    content_type = "streams"  # 'videos' 또는 'streams' 선택 가능
+    url = get_latest_video_url(channel, keyword, content_type)
+    if url:
+        print("Latest Matching Video URL:", url)
+    else:
+        print("No matching video found.")
+
+    channel = "https://www.youtube.com/@CCTV"
+    keyword = "CCTV「新闻联播」"
+    content_type = "videos"  # 'videos' 또는 'streams' 선택 가능
+    url = get_latest_video_url(channel, keyword, content_type)
+    if url:
+        print("Latest Matching Video URL:", url)
+    else:
+        print("No matching video found.")
