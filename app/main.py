@@ -16,7 +16,7 @@ async def get_youtube():
 
     results = {}
     for channel in channels:
-        video_url = get_latest_video_url(channel["channel_id"], channel["keyword"], channel["content_type"])
-        results[channel["country"]] = video_url if video_url else "No matching video found."
+    # video_url = get_latest_video_url(channel["channel_id"], channel["keyword"], channel["content_type"])
+        results[channel["country"]] = "https://www.youtube.com"
 
     return results

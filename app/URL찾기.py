@@ -75,9 +75,8 @@ def get_latest_video_url(channel_url, title_keyword, content_type="videos"):
     finally:
         driver.quit()
 
-""""""
+"""
 if __name__ == "__main__":
-
     channel = "https://www.youtube.com/@NBCNews"
     keyword = "Nightly News Full Episode"
     content_type = "videos"  # 'videos' 또는 'streams' 선택 가능
@@ -105,3 +104,4 @@ if __name__ == "__main__":
         print("Latest Matching Video URL:", url)
     else:
         print("No matching video found.")
+"""
