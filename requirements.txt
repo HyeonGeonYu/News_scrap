@@ -1,7 +1,5 @@
 fastapi
 uvicorn
 requests
-beautifulsoup4
-selenium
 celery[redis]
 python-dotenv
