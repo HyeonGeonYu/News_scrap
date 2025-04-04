@@ -13,8 +13,12 @@ app.add_middleware(
     allow_headers=["*"],  # 모든 헤더 허용
 )
 
-@app.api_route("/youtube", methods=["GET", "HEAD"])
-async def get_youtube():
+@app.head("/youtube")
+def head_video():
+    return {}  # HEAD 요청은 본문 없이 응답 가능
+
+@app.get("/youtube")
+def get_video():
     """
     미국, 중국, 일본의 최신 뉴스 영상 URL을 반환합니다.
     """
