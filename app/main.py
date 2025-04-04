@@ -1,6 +1,30 @@
 from fastapi import FastAPI
-from .URL찾기 import get_latest_video_url
 from fastapi.middleware.cors import CORSMiddleware
+import redis
+import os
+import json
+import time
+# from .tasks import fetch_and_store_youtube_data
+from app.storage import fetch_and_store_youtube_data
+
+from pathlib import Path
+from dotenv import load_dotenv
+env_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
+REDIS_HOST = os.getenv("REDIS_HOST")
+REDIS_PORT = os.getenv("REDIS_PORT")
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+
+if REDIS_PORT is None:
+    raise ValueError("REDIS_PORT 환경 변수가 설정되지 않았습니다.")
+
+redis_client = redis.Redis(
+      host=REDIS_HOST,
+      port=REDIS_PORT,
+      password=REDIS_PASSWORD,
+      ssl=True
+  )
 
 app = FastAPI()
 
@@ -19,18 +43,24 @@ def head_video():
 
 @app.get("/youtube")
 def get_video():
-    """
-    미국, 중국, 일본의 최신 뉴스 영상 URL을 반환합니다.
-    """
-    channels = [
-        {"country": "USA", "channel_id": "https://www.youtube.com/@NBCNews", "keyword": "Nightly News Full Episode","content_type" : "videos"},
-        {"country": "Japan", "channel_id": "https://www.youtube.com/@tbsnewsdig", "keyword": "【LIVE】朝のニュース（Japan News Digest Live）最新情報など｜TBS NEWS DIG","content_type" : "streams"},
-        {"country": "China", "channel_id": "https://www.youtube.com/@CCTV", "keyword": "CCTV「新闻联播」","content_type" : "videos"}
-    ]
+    try:
+        data = redis_client.get('youtube_data')
+        timestamp = redis_client.get("youtube_data_timestamp")
+        now = time.time()
+        expired = True
 
-    results = {}
-    for channel in channels:
-    # video_url = get_latest_video_url(channel["channel_id"], channel["keyword"], channel["content_type"])
-        results[channel["country"]] = "https://www.youtube.com"
+        if timestamp:
+            last_saved = float(timestamp.decode())
+            expired = now - last_saved > 600  # 10분 이상 지났는지
 
-    return results
+        if data and not expired:
+            return data
+    except Exception as e:
+        return f"데이터 조회 중 오류 발생: {str(e)}"
+    return {"message": "Fetching latest data, please retry in a few seconds."}
+
+
+@app.get("/store")
+def store_url():
+    result = fetch_and_store_youtube_data()
+    return {"message": "저장 완료", "result": result}
