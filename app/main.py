@@ -3,9 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 import redis
 import os
 import json
+from apscheduler.schedulers.background import BackgroundScheduler
 import time
+
 # from .tasks import fetch_and_store_youtube_data
-from app.storage import fetch_and_store_youtube_data
+from app.storage import fetch_and_store_youtube_data, scheduled_store
 
 from pathlib import Path
 from dotenv import load_dotenv
@@ -28,6 +30,11 @@ redis_client = redis.Redis(
 
 app = FastAPI()
 
+# 스케줄러 시작
+scheduler = BackgroundScheduler()
+scheduler.add_job(scheduled_store, 'interval', minutes=5)
+scheduler.start()
+
 # CORS 설정 추가
 app.add_middleware(
     CORSMiddleware,
@@ -44,17 +51,9 @@ def head_video():
 @app.get("/youtube")
 def get_video():
     try:
+        fetch_and_store_youtube_data()
         data = redis_client.get('youtube_data')
-        timestamp = redis_client.get("youtube_data_timestamp")
-        now = time.time()
-        expired = True
-
-        if timestamp:
-            last_saved = float(timestamp.decode())
-            expired = now - last_saved > 600  # 10분 이상 지났는지
-
-        if data and not expired:
-            return data
+        return data
     except Exception as e:
         return f"데이터 조회 중 오류 발생: {str(e)}"
     return {"message": "Fetching latest data, please retry in a few seconds."}
