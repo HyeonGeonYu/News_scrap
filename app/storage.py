@@ -5,6 +5,8 @@ import redis
 import time
 import json
 from .URL찾기 import get_latest_video_url
+from pytz import timezone
+from datetime import datetime
 
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -42,4 +44,10 @@ def fetch_and_store_youtube_data():
         return f"데이터 저장 완료"
     except Exception as e:
         return f"저장 중 오류 발생: {str(e)}"
+
+def scheduled_store():
+    now = datetime.now(timezone('Asia/Seoul'))
+    if 11 <= now.hour < 15:  # 11시 ~ 14:59 사이 (15시 이전)
+        print("Running scheduled store at", now)
+        fetch_and_store_youtube_data()
 
