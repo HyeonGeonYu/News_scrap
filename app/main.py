@@ -32,7 +32,7 @@ app = FastAPI()
 
 # 스케줄러 시작
 scheduler = BackgroundScheduler()
-scheduler.add_job(scheduled_store, 'interval', minutes=5)
+scheduler.add_job(scheduled_store, 'interval', minutes=20)
 scheduler.start()
 
 # CORS 설정 추가
@@ -51,7 +51,6 @@ def head_video():
 @app.get("/youtube")
 def get_video():
     try:
-        fetch_and_store_youtube_data()
         data = redis_client.get('youtube_data')
         return data
     except Exception as e:
