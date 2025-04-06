@@ -4,3 +4,4 @@ requests
 celery[redis]
 python-dotenv
 apscheduler
+pytz
