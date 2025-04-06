@@ -40,7 +40,7 @@ def fetch_and_store_youtube_data():
             results[channel["country"]] = video_data
 
         redis_client.set('youtube_data', json.dumps(results))
-        redis_client.set("youtube_data_timestamp", str(time.time()))  # 저장 시간도 같이
+        redis_client.set("youtube_data_timestamp", str(int(time.time())))
 
         return f"데이터 저장 완료"
     except Exception as e:
@@ -52,7 +52,7 @@ def scheduled_store():
         print("Running scheduled store at", now)
         fetch_and_store_youtube_data()
 
-"""
+
 if __name__ == "__main__":
     result = fetch_and_store_youtube_data()
     print(result)
@@ -61,4 +61,3 @@ if __name__ == "__main__":
     data = redis_client.get("youtube_data")
     print("📦 저장된 유튜브 데이터:")
     print(json.loads(data))
-"""
