@@ -58,8 +58,16 @@ def get_video():
         return f"데이터 조회 중 오류 발생: {str(e)}"
     return {"message": "Fetching latest data, please retry in a few seconds."}
 
+@app.get("/youtube/timestamp")
+def get_youtube_data_timestamp():
+    timestamp = redis_client.get("youtube_data_timestamp")
+    if timestamp:
+        return timestamp.decode("utf-8")
+    return "No timestamp found"
 
 @app.get("/store")
 def store_url():
     result = fetch_and_store_youtube_data()
     return {"message": "저장 완료", "result": result}
+
+

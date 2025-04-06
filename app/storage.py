@@ -4,10 +4,10 @@ import os
 import redis
 import time
 import json
-from .URL찾기 import get_latest_video_url
+from app.URL찾기 import get_latest_video_url
 from pytz import timezone
 from datetime import datetime
-
+from dateutil import parser
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
@@ -25,18 +25,19 @@ redis_client = redis.Redis(
 def fetch_and_store_youtube_data():
     try:
         channels = [
-            {"country": "USA", "channel_id": "UC16niRr50-MSBwiO3YDb3RA", "keyword": "Nightly News Full Episode",
-             "content_type": "videos"},
-            {"country": "Japan", "channel_id": "UC6AG81pAkf5gf0Hz0UeV0kA",
-             "keyword": "【LIVE】朝のニュース（Japan News Digest Live）最新情報など｜TBS NEWS DIG", "content_type": "streams"},
-            {"country": "China", "channel_id": "UCi6O0HzkZbL47h3zdsqIJMQ", "keyword": "CCTV「新闻联播」",
-             "content_type": "videos"}
+            {"country": "USA", "channel_handle": "@NBCNews", "keyword": "Nightly News Full Episode",
+             "content_type": "video"},
+            {"country": "Japan", "channel_handle": "@tbsnewsdig",
+             "keyword": "【LIVE】朝のニュース（Japan News Digest Live）", "content_type": "video"},
+            {"country": "China", "channel_handle": "@CCTV", "keyword": "CCTV「新闻联播」", "content_type": "playlist"}
         ]
 
         results = {}
         for channel in channels:
-            video_url = get_latest_video_url(channel["channel_id"], channel["keyword"], channel["content_type"])
-            results[channel["country"]] = video_url
+            video_data = get_latest_video_url(channel["channel_handle"], channel["keyword"], channel["content_type"])
+            dt = parser.parse(video_data["publishedAt"])
+            video_data["publishedAtFormatted"] = dt.astimezone(timezone("Asia/Seoul")).strftime("%Y-%m-%d %H:%M")
+            results[channel["country"]] = video_data
 
         redis_client.set('youtube_data', json.dumps(results))
         redis_client.set("youtube_data_timestamp", str(time.time()))  # 저장 시간도 같이
@@ -51,3 +52,13 @@ def scheduled_store():
         print("Running scheduled store at", now)
         fetch_and_store_youtube_data()
 
+"""
+if __name__ == "__main__":
+    result = fetch_and_store_youtube_data()
+    print(result)
+
+    # 저장된 데이터 확인
+    data = redis_client.get("youtube_data")
+    print("📦 저장된 유튜브 데이터:")
+    print(json.loads(data))
+"""
