@@ -28,25 +28,25 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.URL있나 확인 (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.URL찾기.executor&quot;: &quot;Run&quot;,
-    &quot;Python.main..executor&quot;: &quot;Debug&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.storage.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.웹사이트입력.executor&quot;: &quot;Debug&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Hyeongeon/Hansoldeco_s3_comp/News_scrap&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.URL있나 확인 (1).executor": "Run",
+    "Python.URL찾기.executor": "Run",
+    "Python.main..executor": "Debug",
+    "Python.main.executor": "Run",
+    "Python.storage.executor": "Debug",
+    "Python.웹사이트입력.executor": "Debug",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "C:/Users/Hyeongeon/Hansoldeco_s3_comp/my_resume",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Hyeongeon\Hansoldeco_s3_comp\News_scrap" />
@@ -211,6 +211,8 @@
       <workItem from="1743909189351" duration="5536000" />
       <workItem from="1743915759158" duration="2610000" />
       <workItem from="1743918878123" duration="771000" />
+      <workItem from="1743919793787" duration="242000" />
+      <workItem from="1743922218338" duration="338000" />
     </task>
     <servers />
   </component>
