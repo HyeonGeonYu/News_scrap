@@ -29,7 +29,7 @@ def fetch_and_store_youtube_data():
              "content_type": "video"},
             {"country": "Japan", "channel_handle": "@tbsnewsdig",
              "keyword": "【LIVE】朝のニュース（Japan News Digest Live）", "content_type": "video"},
-            {"country": "China", "channel_handle": "@CCTV", "keyword": "CCTV「新闻联播」", "content_type": "playlist"}
+            {"country": "China", "channel_handle": "PL0eGJygpmOH5xQuy8fpaOvKrenoCsWrKh", "keyword": "CCTV「新闻联播」", "content_type": "playlist"}
         ]
 
         results = {}

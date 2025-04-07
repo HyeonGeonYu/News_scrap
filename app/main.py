@@ -61,7 +61,7 @@ def get_video():
 def get_youtube_data_timestamp():
     timestamp = redis_client.get("youtube_data_timestamp")
     if timestamp:
-        return timestamp.decode("utf-8")
+        return int(timestamp.decode("utf-8"))
     return "No timestamp found"
 
 @app.get("/store")
