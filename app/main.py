@@ -31,8 +31,10 @@ redis_client = redis.Redis(
 app = FastAPI()
 
 # 스케줄러 시작
+from apscheduler.triggers.cron import CronTrigger
 scheduler = BackgroundScheduler()
-scheduler.add_job(scheduled_store, 'interval', minutes=20)
+trigger = CronTrigger(minute='0,10,20,30,40,50')
+scheduler.add_job(scheduled_store, 'interval', trigger)
 scheduler.start()
 
 # CORS 설정 추가

@@ -25,22 +25,35 @@ redis_client = redis.Redis(
 def fetch_and_store_youtube_data():
     try:
         channels = [
-            {"country": "USA", "channel_handle": "@NBCNews", "keyword": "Nightly News Full Episode",
-             "content_type": "video"},
+            {"country": "USA", "channel_handle": "PL0tDb4jw6kPymVj5xNNha5PezudD5Qw9L", "keyword": "Nightly News Full Episode",
+             "content_type": "playlist"},
             {"country": "Japan", "channel_handle": "@tbsnewsdig",
              "keyword": "【LIVE】朝のニュース（Japan News Digest Live）", "content_type": "video"},
             {"country": "China", "channel_handle": "PL0eGJygpmOH5xQuy8fpaOvKrenoCsWrKh", "keyword": "CCTV「新闻联播」", "content_type": "playlist"}
         ]
 
         results = {}
+        existing_data_raw = redis_client.get("youtube_data")
+        existing_data = json.loads(existing_data_raw) if existing_data_raw else {}
         for channel in channels:
             video_data = get_latest_video_url(channel["channel_handle"], channel["keyword"], channel["content_type"])
             dt = parser.parse(video_data["publishedAt"])
             video_data["publishedAtFormatted"] = dt.astimezone(timezone("Asia/Seoul")).strftime("%Y-%m-%d %H:%M")
+
+            # 기존 URL과 비교
+            old_url = existing_data.get(channel["country"], {}).get("url")
+            if old_url != video_data["url"]:
+                updated = True
+                print(f"🔔 {channel['country']} 업데이트 감지됨: {old_url} ➜ {video_data['url']}")
+
             results[channel["country"]] = video_data
 
-        redis_client.set('youtube_data', json.dumps(results))
-        redis_client.set("youtube_data_timestamp", str(int(time.time())))
+        if updated:
+            redis_client.set("youtube_data", json.dumps(results))
+            redis_client.set("youtube_data_timestamp", str(int(time.time())))
+            print("✅ Redis에 새 데이터 저장 완료")
+        else:
+            print("⏸️ 변경 없음 — Redis 업데이트 생략")
 
         return f"데이터 저장 완료"
     except Exception as e:
@@ -48,7 +61,7 @@ def fetch_and_store_youtube_data():
 
 def scheduled_store():
     now = datetime.now(timezone('Asia/Seoul'))
-    if 11 <= now.hour < 15:  # 11시 ~ 14:59 사이 (15시 이전)
+    if 11 <= now.hour < 16:  # 11시 ~ 14:59 사이 (15시 이전)
         print("Running scheduled store at", now)
         fetch_and_store_youtube_data()
 
