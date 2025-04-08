@@ -19,12 +19,31 @@ import difflib
 # 🔑 YouTube Data API 키 (보안을 위해 환경변수 사용 추천)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # .env에서 불러오기
 
+import isodate
 
 def find_similar_video_id(data, keyword, similarity_threshold=0.7,from_playlist=False):
     keyword = keyword.lower()
     k_len = len(keyword)
 
     for item in data["items"]:
+        if isinstance(item["id"], dict):
+            video_id = item["id"].get("videoId")
+        else:
+            video_id = item["snippet"]["resourceId"]["videoId"]
+
+        videos_check_url = "https://www.googleapis.com/youtube/v3/videos"
+        params = {
+            "part": "contentDetails",
+            "id": video_id,
+            "key": YOUTUBE_API_KEY
+        }
+        response = requests.get(videos_check_url, params=params)
+        video_data = response.json()
+        duration = isodate.parse_duration(video_data["items"][0]["contentDetails"]['duration'])
+        # 1시간 이하 영상만
+        if duration.total_seconds() >= 3600:
+            continue
+
         title = item["snippet"]["title"]
         text = title.lower()
         max_sim = 0.0
@@ -37,11 +56,7 @@ def find_similar_video_id(data, keyword, similarity_threshold=0.7,from_playlist=
                 max_sim = sim
 
         if max_sim > similarity_threshold:
-            # 🔥 여기서 안전하게 videoId 추출
-            if from_playlist:
-                return item["snippet"]["resourceId"]["videoId"]
-            else:
-                return item["id"]["videoId"]
+            return video_id
     # 매칭 없을 경우 None 반환
     return None
 
@@ -113,7 +128,7 @@ def get_latest_video_url(channel_handle, keyword, content_type="video"):
 # ✅ 테스트 실행
 if __name__ == "__main__":
     channels = [
-        {"country": "USA", "channel_handle": "@NBCNews", "keyword": "Nightly News Full Episode", "content_type":"video"},
+        {"country": "USA", "channel_handle": "PL0tDb4jw6kPymVj5xNNha5PezudD5Qw9L", "keyword": "Nightly News Full Episode", "content_type":"playlist"},
         {"country": "Japan", "channel_handle": "@tbsnewsdig",
          "keyword": "【LIVE】朝のニュース（Japan News Digest Live）", "content_type":"video"},
         {"country": "China", "channel_handle": "PL0eGJygpmOH5xQuy8fpaOvKrenoCsWrKh", "keyword": "CCTV「新闻联播」", "content_type":"playlist"} # @CCTV 중 특정 재생목록
