@@ -6,3 +6,5 @@ python-dotenv
 apscheduler
 pytz
 isodate
+youtube-transcript-api
+openai
