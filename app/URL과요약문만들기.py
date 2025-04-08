@@ -16,7 +16,7 @@ import isodate
 from openai import OpenAI
 def summarize_content(content):
     if len(content) > 30000:
-        return "❌ 요약 실패: 단어 수 초과"
+        return "❌ 요약 실패: 글자 수(30000) 초과"
     if not content.strip():
         return "❌ 요약 실패: 내용 없음"
     client = OpenAI()
