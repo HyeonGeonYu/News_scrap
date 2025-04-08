@@ -44,7 +44,7 @@ def fetch_and_store_youtube_data():
             # ⛔️ 오늘 이미 처리했으면 skip (API 호출 X)
             if redis_client.hexists(today_key, country):
                 print(f"⏭️ {country} — 이미 오늘 처리됨. API 호출 생략")
-               # continue
+                continue
 
             video_data = get_latest_video_url(channel)
             dt = parser.parse(video_data["publishedAt"])
