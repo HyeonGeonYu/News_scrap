@@ -38,7 +38,7 @@ def fetch_and_store_youtube_data():
 
         results = {}
         today_key = f"processed_urls:{datetime.now().date()}"
-
+        updated = False
         for channel in channels:
             country = channel["country"]
             # ⛔️ 오늘 이미 처리했으면 skip (API 호출 X)
