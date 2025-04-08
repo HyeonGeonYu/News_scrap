@@ -1,6 +1,6 @@
 import time
 import json
-from app.URL찾기 import get_latest_video_url
+from app.URL과요약문만들기 import get_latest_video_url
 from pytz import timezone
 from datetime import datetime
 from dateutil import parser
@@ -8,13 +8,32 @@ from app.redis_client import redis_client
 def fetch_and_store_youtube_data():
     try:
         channels = [
-            {"country": "Korea", "channel_handle": "@newskbs", "keyword": "[풀영상] 뉴스12",
-             "content_type": "video"},
-            {"country": "USA", "channel_handle": "PL0tDb4jw6kPymVj5xNNha5PezudD5Qw9L", "keyword": "Nightly News Full Episode",
-             "content_type": "playlist"},
-            {"country": "Japan", "channel_handle": "@tbsnewsdig",
-             "keyword": "【LIVE】朝のニュース（Japan News Digest Live）", "content_type": "video"},
-            {"country": "China", "channel_handle": "PL0eGJygpmOH5xQuy8fpaOvKrenoCsWrKh", "keyword": "CCTV「新闻联播」", "content_type": "playlist"}
+            {"country": "Korea",
+             "channel_handle": "@newskbs",
+             "keyword": "[풀영상] 뉴스12",
+             "content_type": "video",
+             "save_fields": "subtitle"},
+            {
+                "country": "USA",
+                "channel_handle": "PL0tDb4jw6kPymVj5xNNha5PezudD5Qw9L",
+                "keyword": "Nightly News Full Episode",
+                "content_type": "playlist",
+                "save_fields": "subtitle"
+            },
+            {
+                "country": "Japan",
+                "channel_handle": "@tbsnewsdig",
+                "keyword": "【LIVE】朝のニュース（Japan News Digest Live）",
+                "content_type": "video",
+                "save_fields": "subtitle"
+            },
+            {
+                "country": "China",
+                "channel_handle": "PL0eGJygpmOH5xQuy8fpaOvKrenoCsWrKh",
+                "keyword": "CCTV「新闻联播」",
+                "content_type": "playlist",
+                "save_fields": "description"
+            }
         ]
 
         results = {}
@@ -27,10 +46,9 @@ def fetch_and_store_youtube_data():
                 print(f"⏭️ {country} — 이미 오늘 처리됨. API 호출 생략")
                 continue
 
-            video_data = get_latest_video_url(channel["channel_handle"], channel["keyword"], channel["content_type"])
+            video_data = get_latest_video_url(channel)
             dt = parser.parse(video_data["publishedAt"])
             video_data["publishedAtFormatted"] = dt.astimezone(timezone("Asia/Seoul")).strftime("%Y-%m-%d %H:%M")
-            video_data["isUpdatedToday"] = dt.date() == datetime.now(timezone("Asia/Seoul")).date()  # ✅ 이 줄 추가
 
             results[country] = video_data
             video_data["processedAt"] = datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d")
