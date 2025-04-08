@@ -1,40 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import redis
-import os
-import json
 from apscheduler.schedulers.background import BackgroundScheduler
-import time
-
-# from .tasks import fetch_and_store_youtube_data
+from app.redis_client import redis_client
 from app.storage import fetch_and_store_youtube_data, scheduled_store
 
-from pathlib import Path
-from dotenv import load_dotenv
-env_path = Path(__file__).resolve().parent / ".env"
-load_dotenv(dotenv_path=env_path)
-
-REDIS_HOST = os.getenv("REDIS_HOST")
-REDIS_PORT = os.getenv("REDIS_PORT")
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
-
-if REDIS_PORT is None:
-    raise ValueError("REDIS_PORT 환경 변수가 설정되지 않았습니다.")
-
-redis_client = redis.Redis(
-      host=REDIS_HOST,
-      port=REDIS_PORT,
-      password=REDIS_PASSWORD,
-      ssl=True
-  )
 
 app = FastAPI()
 
 # 스케줄러 시작
 from apscheduler.triggers.cron import CronTrigger
 scheduler = BackgroundScheduler()
-trigger = CronTrigger(minute='0,10,20,30,40,50')
-scheduler.add_job(scheduled_store, 'interval', trigger)
+trigger = CronTrigger(minute='0,10,20,30,40,50')  # 매 10분마다
+scheduler.add_job(scheduled_store, trigger=trigger)
 scheduler.start()
 
 # CORS 설정 추가
