@@ -5,6 +5,8 @@ from pytz import timezone
 from datetime import datetime
 from dateutil import parser
 from app.redis_client import redis_client
+
+
 def fetch_and_store_youtube_data():
     try:
         channels = [
@@ -37,8 +39,10 @@ def fetch_and_store_youtube_data():
         ]
 
         results = {}
-        today_key = f"processed_urls:{datetime.now().date()}"
+        today_date = datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d")
+        today_key = f"processed_urls:{today_date}"
         updated = False
+
         for channel in channels:
             country = channel["country"]
             # ⛔️ 오늘 이미 처리했으면 skip (API 호출 X)
