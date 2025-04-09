@@ -3,26 +3,27 @@ from difflib import SequenceMatcher
 from youtube_transcript_api import YouTubeTranscriptApi
 from pathlib import Path
 from dotenv import load_dotenv
-env_path = Path(__file__).resolve().parent / ".env"
-load_dotenv(dotenv_path=env_path)
-
 import requests
 import os
 import difflib
+env_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=env_path)
 # 🔑 YouTube Data API 키 (보안을 위해 환경변수 사용 추천)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # .env에서 불러오기
-
+OPENAI_API_KEY = os.getenv("OPENAI_API_KE")  # .env에서 불러오기
 import isodate
 from openai import OpenAI
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
 def summarize_content(content):
     if len(content) > 30000:
         return "❌ 요약 실패: 글자 수(30000) 초과"
     if not content.strip():
         return "❌ 요약 실패: 내용 없음"
-    client = OpenAI()
+
     try:
 
-        completion = client.chat.completions.create(
+        completion = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {
