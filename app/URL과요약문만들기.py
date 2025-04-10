@@ -26,16 +26,7 @@ def summarize_content(content):
         completion = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "주요 뉴스를 반드시 한글로 설명해줘. 불필요한 도입 문구 없이, 바로 "
-                        "요점 나열 형식으로 시작해."
-                        "예: 1. **핵심 내용 요약**: 실제 내용..."
-                        " 반드시 한글로 설명해줘"
-                    )
-                },
-                {"role": "user", "content": content}
+                {"role": "user", "content": content+"\n\n 주요 뉴스 한글로 설명해"}
             ]
         )
         summary = completion.choices[0].message.content
