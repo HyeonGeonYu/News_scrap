@@ -28,41 +28,29 @@ def head_video():
     return {}  # HEAD 요청은 본문 없이 응답 가능
 
 @app.get("/youtube")
-def get_video(country: str):
-    try:
+def youtube_data(country: str):
+    countries = ["Korea", "USA", "Japan", "China"]
+    result = {}
+
+    for country in countries:
         raw_data = redis_client.get(f"youtube_data:{country}")
         ts = redis_client.get(f"youtube_data_timestamp:{country}")
 
-        if not raw_data:
-            return {"error": f"{country}에 대한 데이터 없음"}
+        if raw_data:
+            try:
+                data = json.loads(raw_data)
 
-        data = json.loads(raw_data)
+                if ts:
+                    data["processedAt"] = int(ts.decode("utf-8"))
+                    data["publishedAtFormatted"] = datetime.strptime(
+                        data["publishedAt"], "%Y-%m-%dT%H:%M:%SZ"
+                    ).strftime("%Y-%m-%d %H:%M")
 
-        if ts:
-            data["processedAt"] = int(ts.decode("utf-8"))
-            data["publishedAtFormatted"] = datetime.datetime.strptime(
-                data["publishedAt"], "%Y-%m-%dT%H:%M:%SZ"
-            ).strftime("%Y-%m-%d %H:%M")
+                result[country] = data
 
-        return data
-
-    except Exception as e:
-        return {"error": f"❌ 데이터 조회 중 오류 발생: {str(e)}"}
-
-
-@app.get("/youtube/timestamp")
-def get_youtube_data_timestamps():
-    countries = ["Korea", "USA", "Japan", "China"]
-    timestamps = {}
-
-    for country in countries:
-        ts = redis_client.get(f"youtube_data_timestamp:{country}")
-        if ts:
-            timestamps[country] = int(ts.decode("utf-8"))
-        else:
-            timestamps[country] = None  # 또는 "Not Found"
-
-    return timestamps
+            except Exception as e:
+                result[country] = {"error": f"{country} 처리 중 오류: {str(e)}"}
+    return result
 
 """
 @app.get("/store")
