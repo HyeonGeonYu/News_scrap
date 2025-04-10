@@ -28,7 +28,7 @@ def head_video():
     return {}  # HEAD 요청은 본문 없이 응답 가능
 
 @app.get("/youtube")
-def youtube_data(country: str):
+def youtube_data():
     countries = ["Korea", "USA", "Japan", "China"]
     result = {}
 
