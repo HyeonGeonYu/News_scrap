@@ -38,7 +38,7 @@ def fetch_and_store_youtube_data():
             }
         ]
 
-        results = {}
+
         today_date = datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d")
         today_key = f"processed_urls:{today_date}"
         updated = False
@@ -46,28 +46,27 @@ def fetch_and_store_youtube_data():
         for channel in channels:
             country = channel["country"]
             # ⛔️ 오늘 이미 처리했으면 skip (API 호출 X)
-            if redis_client.hexists(today_key, country):
-                print(f"⏭️ {country} — 이미 오늘 처리됨. API 호출 생략")
+            existing_url = redis_client.hget(today_key, country)
+            if existing_url:
+                print(f"⏭️ {country} — 오늘 이미 처리된 URL 있음: {existing_url.decode()}")
                 continue
 
             video_data = get_latest_video_url(channel)
             dt = parser.parse(video_data["publishedAt"])
             video_data["publishedAtFormatted"] = dt.astimezone(timezone("Asia/Seoul")).strftime("%Y-%m-%d %H:%M")
-
-            results[country] = video_data
             video_data["processedAt"] = datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d")
+
+            # ✅ Redis에 나라별로 개별 저장
+            redis_client.set(f"youtube_data:{country}", json.dumps(video_data))
+            redis_client.set(f"youtube_data_timestamp:{country}", str(int(time.time())))
+
             redis_client.hset(today_key, country, video_data["url"])
-            redis_client.expire(today_key, 86400)
 
             print(f"🔔 {country} 새 URL 저장됨: {video_data['url']}")
-
             updated = True
-        if updated:
-            redis_client.set("youtube_data", json.dumps(results))
-            redis_client.set("youtube_data_timestamp", str(int(time.time())))
-            print("✅ Redis에 새 데이터 저장 완료")
 
-        return f"데이터 저장 완료"
+
+        return "✅ 데이터 저장 완료" if updated else "✅ 모든 데이터는 이미 최신 상태입니다."
     except Exception as e:
         return f"저장 중 오류 발생: {str(e)}"
 

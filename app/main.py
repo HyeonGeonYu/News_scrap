@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.redis_client import redis_client
 from app.storage import fetch_and_store_youtube_data, scheduled_store
-
+import json
 
 app = FastAPI()
 
@@ -30,22 +30,41 @@ def head_video():
 @app.get("/youtube")
 def get_video():
     try:
-        data = redis_client.get('youtube_data')
-        return data
+        # 불러올 나라 목록
+        countries = ["Korea", "USA", "Japan", "China"]
+        results = {}
+
+        for country in countries:
+            raw = redis_client.get(f"youtube_data:{country}")
+            if raw:
+                results[country] = json.loads(raw)
+            else:
+                results[country] = {"message": "데이터 없음"}
+
+        return results
+
     except Exception as e:
-        return f"데이터 조회 중 오류 발생: {str(e)}"
-    return {"message": "Fetching latest data, please retry in a few seconds."}
+        return {"error": f"데이터 조회 중 오류 발생: {str(e)}"}
+
 
 @app.get("/youtube/timestamp")
-def get_youtube_data_timestamp():
-    timestamp = redis_client.get("youtube_data_timestamp")
-    if timestamp:
-        return int(timestamp.decode("utf-8"))
-    return "No timestamp found"
+def get_youtube_data_timestamps():
+    countries = ["Korea", "USA", "Japan", "China"]
+    timestamps = {}
 
+    for country in countries:
+        ts = redis_client.get(f"youtube_data_timestamp:{country}")
+        if ts:
+            timestamps[country] = int(ts.decode("utf-8"))
+        else:
+            timestamps[country] = None  # 또는 "Not Found"
+
+    return timestamps
+
+"""
 @app.get("/store")
 def store_url():
     result = fetch_and_store_youtube_data()
     return {"message": "저장 완료", "result": result}
-
+"""
 
