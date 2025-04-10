@@ -4,7 +4,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from app.redis_client import redis_client
 from app.storage import fetch_and_store_youtube_data, scheduled_store
 import json
-
+from datetime import datetime
 app = FastAPI()
 
 # 스케줄러 시작
@@ -28,23 +28,26 @@ def head_video():
     return {}  # HEAD 요청은 본문 없이 응답 가능
 
 @app.get("/youtube")
-def get_video():
+def get_video(country: str):
     try:
-        # 불러올 나라 목록
-        countries = ["Korea", "USA", "Japan", "China"]
-        results = {}
+        raw_data = redis_client.get(f"youtube_data:{country}")
+        ts = redis_client.get(f"youtube_data_timestamp:{country}")
 
-        for country in countries:
-            raw = redis_client.get(f"youtube_data:{country}")
-            if raw:
-                results[country] = json.loads(raw)
-            else:
-                results[country] = {"message": "데이터 없음"}
+        if not raw_data:
+            return {"error": f"{country}에 대한 데이터 없음"}
 
-        return results
+        data = json.loads(raw_data)
+
+        if ts:
+            data["processedAt"] = int(ts.decode("utf-8"))
+            data["publishedAtFormatted"] = datetime.datetime.strptime(
+                data["publishedAt"], "%Y-%m-%dT%H:%M:%SZ"
+            ).strftime("%Y-%m-%d %H:%M")
+
+        return data
 
     except Exception as e:
-        return {"error": f"데이터 조회 중 오류 발생: {str(e)}"}
+        return {"error": f"❌ 데이터 조회 중 오류 발생: {str(e)}"}
 
 
 @app.get("/youtube/timestamp")
