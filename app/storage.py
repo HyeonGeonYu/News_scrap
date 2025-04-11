@@ -1,19 +1,16 @@
 import time
 import json
-from app.URL과요약문만들기 import get_latest_video_url
+from app.URL과요약문만들기 import get_latest_video_data, summarize_content
 from pytz import timezone
 from datetime import datetime
 from dateutil import parser
 from app.redis_client import redis_client
 
-
-def fetch_and_store_youtube_data():
-    try:
-        channels = [
+channels = [
             {"country": "Korea",
-             "channel_handle": "@newskbs",
+             "channel_handle": "PL9a4x_yPK_85sGRvAQX4LEVHY8F9v405J",
              "keyword": "[풀영상] 뉴스12",
-             "content_type": "video",
+             "content_type": "playlist",
              "save_fields": "subtitle"},
             {
                 "country": "USA",
@@ -37,21 +34,30 @@ def fetch_and_store_youtube_data():
                 "save_fields": "description"
             }
         ]
-
-
+def fetch_and_store_youtube_data():
+    try:
         today_date = datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d")
         today_key = f"processed_urls:{today_date}"
         updated = False
 
         for channel in channels:
+            # ⛔️ 오늘 이미 변경처리되었으면 stop 유튜브 API 회피
             country = channel["country"]
-            # ⛔️ 오늘 이미 처리했으면 skip (API 호출 X)
             existing_url = redis_client.hget(today_key, country)
             if existing_url:
-                print(f"⏭️ {country} — 오늘 이미 처리된 URL 있음: {existing_url.decode()}")
+                print(f"⏭️ {country} — {today_key} : {existing_url.decode()}")
+                # continue
+            video_data = get_latest_video_data(channel)
+
+            # ⛔️ 이미 저장된 URL과 동일하면 stop OpenAI API 회피
+            existing_url_str = redis_client.hget(today_key, country).decode() if existing_url else None
+            if existing_url_str==video_data['url']:
+                print(f"⏭️ {country} — 이전 URL과 동일: {existing_url.decode()}")
                 continue
 
-            video_data = get_latest_video_url(channel)
+            summary_result = summarize_content(video_data['summary_content'])
+            video_data['summary_result'] = summary_result
+
             dt = parser.parse(video_data["publishedAt"])
             video_data["publishedAtFormatted"] = dt.astimezone(timezone("Asia/Seoul")).strftime("%Y-%m-%d %H:%M")
             video_data["processedAt"] = datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d")
@@ -85,6 +91,8 @@ if __name__ == "__main__":
     print(result)
 
     # 저장된 데이터 확인
-    data = redis_client.get("youtube_data")
-    print("📦 저장된 유튜브 데이터:")
-    print(json.loads(data))
+    for channel in channels:
+        country = channel["country"]
+        data = redis_client.get(f"youtube_data:{country}")
+        print("📦 저장된 유튜브 데이터:")
+        print(json.loads(data))

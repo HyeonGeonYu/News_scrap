@@ -75,7 +75,7 @@ def find_similar_video_id(data, keyword, similarity_threshold=0.7,from_playlist=
                 return video_id
 
 
-def get_latest_video_url(channel):
+def get_latest_video_data(channel):
     channel_handle = channel["channel_handle"]
     keyword = channel["keyword"]
     content_type = channel["content_type"]
@@ -170,15 +170,12 @@ def get_latest_video_url(channel):
                 print("❌ 자막 가져오기 실패:", e)
                 summary_content = ""
 
-    summary_result = summarize_content(summary_content)
-
     return {
             "url": f"https://www.youtube.com/watch?v={video_id}",
             "title": video_title,
             "publishedAt": video_pbtime,
             "summary_target": save_fields,
-            "summary_content": summary_content,
-            "summary_result": summary_result
+            "summary_content": summary_content
         }
     return None  # 영상이 없을 경우
 
@@ -188,9 +185,9 @@ if __name__ == "__main__":
 
     channels = [
         {"country": "Korea",
-         "channel_handle": "@newskbs",
+         "channel_handle": "PL9a4x_yPK_85sGRvAQX4LEVHY8F9v405J",
          "keyword": "[풀영상] 뉴스12",
-         "content_type": "video",
+         "content_type": "playlist",
          "save_fields": "subtitle"},
         {
             "country": "USA",
@@ -217,7 +214,9 @@ if __name__ == "__main__":
 
     results = {}
     for channel in channels:
-        video_url = get_latest_video_url(channel)
-        results[channel["country"]] = video_url
-
+        country = channel["country"]
+        video_data = get_latest_video_data(channel)
+        summary_result = summarize_content(video_data['summary_content'])
+        video_data['summary_result'] = summary_result
+        results[channel["country"]] = video_data
     print(results)  # 최신 영상 링크 출력
