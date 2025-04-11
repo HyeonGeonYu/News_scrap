@@ -39,26 +39,26 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.URL과요약문만들기 (1).executor": "Run",
-    "Python.URL있나 확인 (1).executor": "Run",
-    "Python.URL찾기.executor": "Run",
-    "Python.main..executor": "Debug",
-    "Python.main.executor": "Run",
-    "Python.storage.executor": "Debug",
-    "Python.웹사이트입력.executor": "Debug",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "C:/Users/Hyeongeon/Hansoldeco_s3_comp/my-frontend",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.URL과요약문만들기 (1).executor&quot;: &quot;Debug&quot;,
+    &quot;Python.URL있나 확인 (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.URL찾기.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main..executor&quot;: &quot;Debug&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.storage.executor&quot;: &quot;Run&quot;,
+    &quot;Python.웹사이트입력.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Hyeongeon/Hansoldeco_s3_comp/my-frontend&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Hyeongeon\Hansoldeco_s3_comp\News_scrap" />
@@ -253,7 +253,9 @@
       <workItem from="1744114026901" duration="699000" />
       <workItem from="1744178456440" duration="3875000" />
       <workItem from="1744192087444" duration="32000" />
-      <workItem from="1744272326674" duration="5132000" />
+      <workItem from="1744272326674" duration="6273000" />
+      <workItem from="1744281302603" duration="50000" />
+      <workItem from="1744351952204" duration="2661000" />
     </task>
     <servers />
   </component>
@@ -264,23 +266,23 @@
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/storage.py</url>
-          <line>84</line>
-          <option name="timeStamp" value="53" />
+          <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
+          <line>170</line>
+          <option name="timeStamp" value="55" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/storage.py</url>
-          <line>83</line>
-          <option name="timeStamp" value="54" />
+          <line>57</line>
+          <option name="timeStamp" value="69" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/News_scrap$storage.coverage" NAME="storage Coverage Results" MODIFIED="1744277818043" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
+    <SUITE FILE_PATH="coverage/News_scrap$storage.coverage" NAME="storage Coverage Results" MODIFIED="1744354557216" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$main_.coverage" NAME="main. Coverage Results" MODIFIED="1743586694817" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$main.coverage" NAME="main Coverage Results" MODIFIED="1743665305295" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/News_scrap$URL__1_.coverage" NAME="URL과요약문만들기 (1) Coverage Results" MODIFIED="1744276063430" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
+    <SUITE FILE_PATH="coverage/News_scrap$URL__1_.coverage" NAME="URL과요약문만들기 (1) Coverage Results" MODIFIED="1744352319267" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$.coverage" NAME="웹사이트입력 Coverage Results" MODIFIED="1743588075341" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$URL___1_.coverage" NAME="URL있나 확인 (1) Coverage Results" MODIFIED="1743663105715" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$URL.coverage" NAME="URL찾기 Coverage Results" MODIFIED="1744089528675" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
