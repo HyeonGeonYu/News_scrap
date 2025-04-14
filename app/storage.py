@@ -5,35 +5,8 @@ from pytz import timezone
 from datetime import datetime
 from dateutil import parser
 from app.redis_client import redis_client
+from test_config import channels
 
-channels = [
-            {"country": "Korea",
-             "channel_handle": "PL9a4x_yPK_85sGRvAQX4LEVHY8F9v405J",
-             "keyword": "[풀영상] 뉴스12",
-             "content_type": "playlist",
-             "save_fields": "subtitle"},
-            {
-                "country": "USA",
-                "channel_handle": "PL0tDb4jw6kPymVj5xNNha5PezudD5Qw9L",
-                "keyword": "Nightly News Full Episode",
-                "content_type": "playlist",
-                "save_fields": "subtitle"
-            },
-            {
-                "country": "Japan",
-                "channel_handle": "@tbsnewsdig",
-                "keyword": "【LIVE】朝のニュース（Japan News Digest Live）",
-                "content_type": "video",
-                "save_fields": "subtitle"
-            },
-            {
-                "country": "China",
-                "channel_handle": "PL0eGJygpmOH5xQuy8fpaOvKrenoCsWrKh",
-                "keyword": "CCTV「新闻联播」",
-                "content_type": "playlist",
-                "save_fields": "description"
-            }
-        ]
 def fetch_and_store_youtube_data():
     try:
         today_date = datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d")
@@ -41,12 +14,12 @@ def fetch_and_store_youtube_data():
         updated = False
 
         for channel in channels:
-            # ⛔️ 오늘 이미 변경처리되었으면 stop 유튜브 API 회피
+            # ⛔️ 오늘 이미 처리되었으면 stop 유튜브 API 회피
             country = channel["country"]
             existing_url = redis_client.hget(today_key, country)
             if existing_url:
                 print(f"⏭️ {country} — {today_key} : {existing_url.decode()}")
-                # continue
+                continue
             video_data = get_latest_video_data(channel)
 
             # ⛔️ 이미 저장된 URL과 동일하면 stop OpenAI API 회피
@@ -67,6 +40,7 @@ def fetch_and_store_youtube_data():
             redis_client.set(f"youtube_data_timestamp:{country}", str(int(time.time())))
 
             redis_client.hset(today_key, country, video_data["url"])
+            redis_client.expire(today_key, 86400)  # 86400초 = 1일
 
             print(f"🔔 {country} 새 URL 저장됨: {video_data['url']}")
             updated = True

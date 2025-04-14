@@ -12,9 +12,11 @@ load_dotenv(dotenv_path=env_path)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # .env에서 불러오기
 OPENAI_API_KEY = os.getenv("OPENAI_API_KE")  # .env에서 불러오기
 import isodate
+from datetime import datetime
+
 from openai import OpenAI
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
-
+from test_config import channels
 def summarize_content(content):
     if len(content) > 30000:
         return "❌ 요약 실패: 글자 수(30000) 초과"
@@ -37,7 +39,7 @@ def summarize_content(content):
         return "❌ 요약 실패: GPT 호출 오류"
 
 
-def find_similar_video_id(data, keyword, similarity_threshold=0.7,from_playlist=False):
+def find_similar_video_title_id(data, keyword, similarity_threshold=0.7,from_playlist=False):
     keyword = keyword.lower()
     k_len = len(keyword)
 
@@ -74,71 +76,74 @@ def find_similar_video_id(data, keyword, similarity_threshold=0.7,from_playlist=
             if max_sim > similarity_threshold:
                 return video_id
 
-
 def get_latest_video_data(channel):
     channel_handle = channel["channel_handle"]
     keyword = channel["keyword"]
-    content_type = channel["content_type"]
+    playlist_id = channel["playlist_id"]
     save_fields = channel["save_fields"]
 
+    # 채널id기준 viedo_id
+    channel_url = "https://www.googleapis.com/youtube/v3/channels"
+    params = {
+        "part": "id",
+        "forHandle": channel_handle,
+        "key": YOUTUBE_API_KEY
+    }
 
-    if content_type=="video":
-        channel_url = "https://www.googleapis.com/youtube/v3/channels"
-        params = {
-            "part": "id",
-            "forHandle": channel_handle,
-            "key": YOUTUBE_API_KEY
-        }
+    response = requests.get(channel_url, params=params)
+    data = response.json()
+    channel_id = data["items"][0]['id']
+    search_url = "https://www.googleapis.com/youtube/v3/search"
+    params = {
+        "part": "snippet",
+        "channelId": channel_id,  # 변환된 채널 ID 사용
+        "q": keyword,
+        "order": "date",  # 최신순 정렬
+        "maxResults": 10,
+        "key": YOUTUBE_API_KEY,
+    }
 
-        response = requests.get(channel_url, params=params)
-        data = response.json()
-        channel_id = data["items"][0]['id']
+    response = requests.get(search_url, params=params)
+    data = response.json()
 
-        search_url = "https://www.googleapis.com/youtube/v3/search"
-        params = {
-            "part": "snippet",
-            "channelId": channel_id,  # 변환된 채널 ID 사용
-            "q": keyword,
-            "order": "date",  # 최신순 정렬
-            "maxResults": 10,
-            "key": YOUTUBE_API_KEY,
-        }
+    video_id_cid = find_similar_video_title_id(data, keyword, similarity_threshold=0.7)
+    # playlistid기준 viedo_id
+    search_playlist_url = "https://www.googleapis.com/youtube/v3/playlistItems"
+    params = {
+        "part": "snippet",
+        "playlistId": playlist_id,
+        "maxResults": 5,
+        "key": YOUTUBE_API_KEY
+    }
 
-        response = requests.get(search_url, params=params)
-        data = response.json()
+    response = requests.get(search_playlist_url, params=params)
+    data = response.json()
 
-        video_id = find_similar_video_id(data, keyword, similarity_threshold=0.7)
+    video_id_plst = find_similar_video_title_id(data, keyword, similarity_threshold=0.7,from_playlist=True)
 
-    elif content_type=="playlist":
-        search_playlist_url = "https://www.googleapis.com/youtube/v3/playlistItems"
-        playlist_id = channel_handle
-        params = {
-            "part": "snippet",
-            "playlistId": playlist_id,
-            "maxResults": 5,
-            "key": YOUTUBE_API_KEY
-        }
+    video_id_list = [video_id_cid,video_id_plst]
+    videos_check_url = "https://www.googleapis.com/youtube/v3/videos"
+    latest_time = None
+    if video_id_list: # 찾은 video id가 있는경우
+        for video_id_idx in range(len(video_id_list)):
 
-        response = requests.get(search_playlist_url, params=params)
-        data = response.json()
+            params = {
+                "part": "snippet",
+                "id": video_id_list[video_id_idx],
+                "key": YOUTUBE_API_KEY
+            }
+            response = requests.get(videos_check_url, params=params)
+            data = response.json()
+            published_time = datetime.strptime(data["items"][0]["snippet"]["publishedAt"], "%Y-%m-%dT%H:%M:%SZ")
+            if latest_time is None or published_time > latest_time:
+                latest_time = published_time
+                latest_video_data = data
 
-        video_id = find_similar_video_id(data, keyword, similarity_threshold=0.7,from_playlist=True)
-
-    if video_id:
-        videos_check_url = "https://www.googleapis.com/youtube/v3/videos"
-        params = {
-            "part": "snippet",
-            "id": video_id,
-            "key": YOUTUBE_API_KEY
-        }
-        response = requests.get(videos_check_url, params=params)
-        data = response.json()
-
-        video_title = data["items"][0]["snippet"]["title"]
-        video_pbtime = data["items"][0]["snippet"]["publishedAt"]
-
+        video_title = latest_video_data["items"][0]["snippet"]["title"]
+        video_pbtime = latest_video_data["items"][0]["snippet"]["publishedAt"]
+        video_id = latest_video_data["items"][0]['id']
         if "description" == save_fields:
-            summary_content = data["items"][0]["snippet"]["description"]
+            summary_content = latest_video_data["items"][0]["snippet"]["description"]
         elif "subtitle" == save_fields:
             country_to_lang = {
                 "Korea": "ko",
@@ -182,35 +187,6 @@ def get_latest_video_data(channel):
 
 # ✅ 테스트 실행
 if __name__ == "__main__":
-
-    channels = [
-        {"country": "Korea",
-         "channel_handle": "PL9a4x_yPK_85sGRvAQX4LEVHY8F9v405J",
-         "keyword": "[풀영상] 뉴스12",
-         "content_type": "playlist",
-         "save_fields": "subtitle"},
-        {
-            "country": "USA",
-            "channel_handle": "PL0tDb4jw6kPymVj5xNNha5PezudD5Qw9L",
-            "keyword": "Nightly News Full Episode",
-            "content_type": "playlist",
-            "save_fields": "subtitle"
-        },
-        {
-            "country": "Japan",
-            "channel_handle": "@tbsnewsdig",
-            "keyword": "【LIVE】朝のニュース（Japan News Digest Live）",
-            "content_type": "video",
-            "save_fields": "subtitle"
-        },
-        {
-            "country": "China",
-            "channel_handle": "PL0eGJygpmOH5xQuy8fpaOvKrenoCsWrKh",
-            "keyword": "CCTV「新闻联播」",
-            "content_type": "playlist",
-            "save_fields": "description"
-        }
-    ]
 
     results = {}
     for channel in channels:
