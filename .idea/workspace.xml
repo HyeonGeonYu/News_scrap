@@ -262,7 +262,7 @@
       <workItem from="1744375184815" duration="8000" />
       <workItem from="1744606920524" duration="5308000" />
       <workItem from="1744613063197" duration="59000" />
-      <workItem from="1744692271529" duration="5382000" />
+      <workItem from="1744692271529" duration="5721000" />
     </task>
     <servers />
   </component>
@@ -288,7 +288,7 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/News_scrap$storage.coverage" NAME="storage Coverage Results" MODIFIED="1744693929675" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
+    <SUITE FILE_PATH="coverage/News_scrap$storage.coverage" NAME="storage Coverage Results" MODIFIED="1744702260207" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$main_.coverage" NAME="main. Coverage Results" MODIFIED="1743586694817" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$main.coverage" NAME="main Coverage Results" MODIFIED="1743665305295" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$100.coverage" NAME="100일지수정보가져오기 Coverage Results" MODIFIED="1744700279427" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
