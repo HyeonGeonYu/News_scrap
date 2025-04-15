@@ -8,3 +8,4 @@ pytz
 isodate
 youtube-transcript-api
 openai
+yfinance

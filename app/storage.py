@@ -6,7 +6,7 @@ from pytz import timezone
 from datetime import datetime
 from dateutil import parser
 from app.redis_client import redis_client
-from test_config import channels
+from app.test_config import channels
 
 # url, 요약 저장 코드
 def fetch_and_store_youtube_data():
