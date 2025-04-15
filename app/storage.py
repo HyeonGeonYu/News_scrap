@@ -28,6 +28,10 @@ def fetch_and_store_youtube_data():
                 print(f"⏭️ {country} — 이전 URL과 동일: {existing_url.decode()}")
                 continue
 
+            # ⛔️ 요약할 내용이 없으면 stop OpenAI API 회피
+            if not video_data['summary_content'].strip():
+                continue
+
             summary_result = summarize_content(video_data['summary_content'])
             video_data['summary_result'] = summary_result
 
