@@ -28,7 +28,7 @@ def summarize_content(content):
         completion = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "user", "content": content+"\n\n 주요 뉴스 한글로 설명해"}
+                {"role": "user", "content": content+"\n\n 주요 뉴스 한글로 설명해 한글로"}
             ]
         )
         summary = completion.choices[0].message.content
@@ -57,10 +57,14 @@ def find_similar_video_title_id(data, keyword, similarity_threshold=0.7,from_pla
         }
         response = requests.get(videos_check_url, params=params)
         video_data = response.json()
-        duration = isodate.parse_duration(video_data["items"][0]["contentDetails"]['duration'])
-        # 10분 ~ 1시간30분 이하 영상만
-        if duration.total_seconds() >= 5400 or duration.total_seconds() <= 600:
-            continue
+        try:
+            duration = isodate.parse_duration(video_data["items"][0]["contentDetails"]['duration'])
+            # 10분 ~ 1시간30분 이하 영상만
+            if duration.total_seconds() >= 5400 or duration.total_seconds() <= 600:
+                continue
+        except (KeyError, IndexError, ValueError) as e:
+            print(f"duration 정보 없는id {video_id}: {e}")
+            continue  # 해당 영상을 스킵하고 다음 영상 처리
 
         title = item["snippet"]["title"]
         text = title.lower()
