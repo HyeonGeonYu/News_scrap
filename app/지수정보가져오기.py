@@ -1,9 +1,9 @@
 import yfinance as yf
 
-def fetch_index_info():
+def fetch_index_info(day_num):
     ndx = yf.Ticker("^NDX")  # ^NDX는 나스닥100 지수
-    hist = ndx.history(period="6mo")
-    hist = hist.tail(100)  # 최근 100 거래일만 가져오기
+    hist = ndx.history(period="12mo")
+    hist = hist.tail(day_num)  # 최근 200 거래일 가져오기
 
     data = []
     for date, row in hist.iterrows():
