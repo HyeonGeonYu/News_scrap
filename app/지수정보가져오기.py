@@ -1,8 +1,4 @@
 import yfinance as yf
-import json
-from datetime import datetime
-from pytz import timezone
-from app.redis_client import redis_client
 
 def fetch_index_info():
     ndx = yf.Ticker("^NDX")  # ^NDX는 나스닥100 지수
