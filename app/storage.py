@@ -56,29 +56,45 @@ def fetch_and_store_youtube_data():
     except Exception as e:
         return f"저장 중 오류 발생: {str(e)}"
 
+def calculate_moving_average(data, period=100):
+    result = []
+    for i in range(len(data)):
+        if i < period:
+            pass
+        else:
+            avg = sum(d["close"] for d in data[i - period + 1:i + 1]) / period
+            result.append(avg)
+    return result
+
+def calculate_envelope(moving_avg, percentage):
+    upper = []
+    lower = []
+    for avg in moving_avg:
+        upper.append(avg * (1 + percentage))
+        lower.append(avg * (1 - percentage))
+    return upper, lower
+
 
 def fetch_and_store_index_data():
     try:
-        new_data = fetch_index_info()  # List of dicts, 날짜 오름차순 정렬이라고 가정
+        new_data = fetch_index_info(day_num = 200)  # List of dicts, 날짜 오름차순 정렬이라고 가정
         index_name = "nasdaq100"
         redis_key = f"index_data:{index_name.lower()}"
 
-        # 기존 데이터 불러오기
-        existing_raw = redis_client.get(redis_key)
-        existing_data = json.loads(existing_raw) if existing_raw else []
+        moving_avg = calculate_moving_average(new_data, period=100)
+        upper10, lower10 = calculate_envelope(moving_avg, 0.10)
+        upper3, lower3 = calculate_envelope(moving_avg, 0.03)
 
-        if existing_data:
-            last_stored_date = existing_data[-1]["date"]
-            # 새 데이터 중, 기존 마지막 날짜 이후만 필터링
-            filtered_new = [d for d in new_data if d["date"] > last_stored_date]
-            print(f"📌 기존 데이터 {len(existing_data)}개, 새로 추가된 {len(filtered_new)}개")
+        trimmed_data = new_data[-100:]
+        # 각 데이터에 해당 계산값 추가
+        for i in range(len(trimmed_data)):
+            trimmed_data[i]["ma100"] = moving_avg[i]
+            trimmed_data[i]["envelope10_upper"] = upper10[i]
+            trimmed_data[i]["envelope10_lower"] = lower10[i]
+            trimmed_data[i]["envelope3_upper"] = upper3[i]
+            trimmed_data[i]["envelope3_lower"] = lower3[i]
 
-            updated_data = existing_data + filtered_new
-        else:
-            print("📌 기존 데이터 없음. 전체 새로 저장")
-            updated_data = new_data
         # 최대 100개 유지
-        trimmed_data = updated_data[-100:]
         redis_client.set(redis_key, json.dumps(trimmed_data))
         redis_client.set(f"{redis_key}:updatedAt", datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d %H:%M"))
         print(f"✅ {len(trimmed_data)}개 지수 데이터 저장 완료")
@@ -86,7 +102,6 @@ def fetch_and_store_index_data():
         return "✅ 데이터 저장 완료"
     except Exception as e:
         return f"저장 중 오류 발생: {str(e)}"
-# 나스닥 데이터 저장코드
 
 def scheduled_store():
     now = datetime.now(timezone('Asia/Seoul'))
