@@ -16,7 +16,7 @@ from datetime import datetime
 
 from openai import OpenAI
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
-from test_config import channels
+from app.test_config import channels
 def summarize_content(content):
     if len(content) > 30000:
         return "❌ 요약 실패: 글자 수(30000) 초과"
