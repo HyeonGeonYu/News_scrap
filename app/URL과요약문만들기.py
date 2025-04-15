@@ -126,18 +126,18 @@ def get_latest_video_data(channel):
     latest_time = None
     if video_id_list: # 찾은 video id가 있는경우
         for video_id_idx in range(len(video_id_list)):
-
-            params = {
-                "part": "snippet",
-                "id": video_id_list[video_id_idx],
-                "key": YOUTUBE_API_KEY
-            }
-            response = requests.get(videos_check_url, params=params)
-            data = response.json()
-            published_time = datetime.strptime(data["items"][0]["snippet"]["publishedAt"], "%Y-%m-%dT%H:%M:%SZ")
-            if latest_time is None or published_time > latest_time:
-                latest_time = published_time
-                latest_video_data = data
+            if video_id_list[video_id_idx]:
+                params = {
+                    "part": "snippet",
+                    "id": video_id_list[video_id_idx],
+                    "key": YOUTUBE_API_KEY
+                }
+                response = requests.get(videos_check_url, params=params)
+                data = response.json()
+                published_time = datetime.strptime(data["items"][0]["snippet"]["publishedAt"], "%Y-%m-%dT%H:%M:%SZ")
+                if latest_time is None or published_time > latest_time:
+                    latest_time = published_time
+                    latest_video_data = data
 
         video_title = latest_video_data["items"][0]["snippet"]["title"]
         video_pbtime = latest_video_data["items"][0]["snippet"]["publishedAt"]
@@ -149,8 +149,7 @@ def get_latest_video_data(channel):
                 "Korea": "ko",
                 "USA": "en",
                 "Japan": "ja",
-                "China": "zh",
-                # 필요한 만큼 추가 가능
+                "China": "zh"
             }
             language_code = country_to_lang.get(channel['country'], "en")  # 기본은 영어
             try:
