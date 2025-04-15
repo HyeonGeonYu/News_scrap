@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.redis_client import redis_client
-from app.storage import fetch_and_store_youtube_data, scheduled_store
+from app.storage import scheduled_store
 import json
 from datetime import datetime
 app = FastAPI()
@@ -52,10 +52,24 @@ def youtube_data():
                 result[country] = {"error": f"{country} 처리 중 오류: {str(e)}"}
     return result
 
-"""
-@app.get("/store")
-def store_url():
-    result = fetch_and_store_youtube_data()
-    return {"message": "저장 완료", "result": result}
-"""
+# 나스닥 데이터 반환 API 추가
+@app.get("/index_data/{index_name}")
+def get_index_data(index_name: str):
+    """
+    나스닥 100 등 다른 인덱스의 데이터를 반환하는 API
+    :param index_name: 인덱스 이름 (예: nasdaq100, hshares, kospi 등)
+    :return: 지정된 인덱스의 데이터
+    """
+    try:
+        # Redis에서 인덱스 데이터 가져오기
+        redis_key = f"index_data:{index_name.lower()}"
+        raw_data = redis_client.get(redis_key)
 
+        if raw_data:
+            data = json.loads(raw_data)
+            return {"data": data}
+        else:
+            return {"error": f"{index_name} 데이터가 존재하지 않습니다."}
+
+    except Exception as e:
+        return {"error": f"데이터를 가져오는 중 오류 발생: {str(e)}"}
