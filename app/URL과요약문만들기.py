@@ -29,7 +29,7 @@ def utc_to_kst(utc_time_str):
     kst_zone = pytz.timezone("Asia/Seoul")
     utc_time = utc_zone.localize(utc_time)
     kst_time = utc_time.astimezone(kst_zone)
-    return kst_time.strftime("%Y-%m-%d %H:%M:%S")  # 예: '2025-04-17 06:00:00'
+    return kst_time.strftime("%Y-%m-%dT%H:%M:%SZ")  # 예: '2025-04-17 06:00:00'
 def summarize_content(content):
     if len(content) > 30000:
         return "❌ 요약 실패: 글자 수(30000) 초과"

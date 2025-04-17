@@ -25,8 +25,8 @@ def fetch_and_store_youtube_data():
             video_data = get_latest_video_data(channel)
 
             # ⛔️ 이미 저장된 URL과 동일하거나 오늘자 뉴스가 아니면 stop OpenAI API 회피
-            video_published_date = datetime.strptime(video_data['publishedAt'], "%Y-%m-%d %H:%M:%S")
-            video_date_str = video_published_date.strftime("%Y-%m-%d")  # 비교를 위한 "YYYY-MM-DD" 형식으로 변환
+
+            video_date_str = video_data['publishedAt'].split('T')[0]
             existing_url_str = redis_client.hget(today_key, country).decode() if existing_url else None
             if existing_url_str==video_data['url']:
                 print(f"⏭️ {country} — 이전 URL과 동일: {existing_url.decode()}")
@@ -45,8 +45,6 @@ def fetch_and_store_youtube_data():
             else:
                 video_data['summary_result'] = "요약할 내용(자막 또는 description) 없음."
 
-            dt = parser.parse(video_data["publishedAt"])
-            video_data["publishedAtFormatted"] = dt.astimezone(timezone("Asia/Seoul")).strftime("%Y-%m-%d %H:%M")
             video_data["processedAt"] = datetime.now(timezone("Asia/Seoul")).strftime('%Y-%m-%dT%H:%M:%SZ')
 
             # ✅ Redis에 나라별로 개별 저장
