@@ -47,7 +47,7 @@ def fetch_and_store_youtube_data():
 
             dt = parser.parse(video_data["publishedAt"])
             video_data["publishedAtFormatted"] = dt.astimezone(timezone("Asia/Seoul")).strftime("%Y-%m-%d %H:%M")
-            video_data["processedAt"] = datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d %H:%M")
+            video_data["processedAt"] = datetime.now(timezone("Asia/Seoul")).strftime('%Y-%m-%dT%H:%M:%SZ')
 
             # ✅ Redis에 나라별로 개별 저장
             redis_client.set(f"youtube_data:{country}", json.dumps(video_data))
@@ -104,8 +104,8 @@ def fetch_and_store_index_data():
 
         # 최대 100개 유지
         redis_client.set(redis_key, json.dumps(trimmed_data))
-        redis_client.set(f"{redis_key}:updatedAt", datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d %H:%M"))
-        print(f"✅ {len(trimmed_data)}개 지수 데이터 저장 완료")
+        redis_client.set(f"{redis_key}:updatedAt", datetime.now(timezone("Asia/Seoul")).strftime('%Y-%m-%dT%H:%M:%SZ'))
+        print(f"✅ {len(trimmed_data)}개 지수 데이터(100일평균,종가,+-10%env, +-3%env) 저장 완료")
 
         return "✅ 데이터 저장 완료"
     except Exception as e:
