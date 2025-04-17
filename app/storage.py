@@ -25,24 +25,29 @@ def fetch_and_store_youtube_data():
             video_data = get_latest_video_data(channel)
 
             # ⛔️ 이미 저장된 URL과 동일하거나 오늘자 뉴스가 아니면 stop OpenAI API 회피
-            video_published_date = datetime.strptime(video_data['publishedAt'], "%Y-%m-%dT%H:%M:%SZ")
+            video_published_date = datetime.strptime(video_data['publishedAt'], "%Y-%m-%d %H:%M:%S")
             video_date_str = video_published_date.strftime("%Y-%m-%d")  # 비교를 위한 "YYYY-MM-DD" 형식으로 변환
             existing_url_str = redis_client.hget(today_key, country).decode() if existing_url else None
-            if existing_url_str==video_data['url'] or video_date_str != today_date:
+            if existing_url_str==video_data['url']:
                 print(f"⏭️ {country} — 이전 URL과 동일: {existing_url.decode()}")
                 continue
 
-            # ⛔️ 요약할 내용이 없으면 stop OpenAI API 회피
-            if not video_data['summary_content'].strip():
-                pass
+            # ⛔️ 오늘 올라온 영상이 아님
+            if video_date_str != today_date:
+                print(f"⏭️ 업로드 날짜:{video_date_str} — 탐색날짜:{today_date}")
                 continue
 
-            summary_result = summarize_content(video_data['summary_content'])
-            video_data['summary_result'] = summary_result
+            # ⛔️ 요약할 내용이 없으면 stop OpenAI API 회피 후 요약내용없이 저장
+            if video_data['summary_content']:
+
+                summary_result = summarize_content(video_data['summary_content'])
+                video_data['summary_result'] = summary_result
+            else:
+                video_data['summary_result'] = "요약할 내용(자막 또는 description) 없음."
 
             dt = parser.parse(video_data["publishedAt"])
             video_data["publishedAtFormatted"] = dt.astimezone(timezone("Asia/Seoul")).strftime("%Y-%m-%d %H:%M")
-            video_data["processedAt"] = datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d")
+            video_data["processedAt"] = datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d %H:%M")
 
             # ✅ Redis에 나라별로 개별 저장
             redis_client.set(f"youtube_data:{country}", json.dumps(video_data))
