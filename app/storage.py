@@ -71,9 +71,9 @@ def fetch_and_store_index_data():
             redis_client.set(f"{redis_key}:updatedAt", datetime.now(timezone("Asia/Seoul")).strftime('%Y-%m-%dT%H:%M:%SZ'))
             print(f"✅ {len(new_data)}개 지수 데이터(100일평균,종가,+-10%env, +-3%env) 저장 완료")
 
-            return "✅ 데이터 저장 완료"
+            print(f"✅ [{index_name.upper()}] {len(new_data)}개 지수 데이터 저장 완료")
         except Exception as e:
-            return f"저장 중 오류 발생: {str(e)}"
+            print(f"❌ [{index_name.upper()}] 저장 중 오류 발생: {str(e)}")
 
 def scheduled_store():
     now = datetime.now(timezone('Asia/Seoul'))
@@ -89,6 +89,8 @@ def scheduled_store():
 
 
 if __name__ == "__main__":
+    fetch_and_store_index_data()
+
     result = fetch_and_store_youtube_data()
     print(result)
 
@@ -99,4 +101,3 @@ if __name__ == "__main__":
         print("📦 저장된 유튜브 데이터:")
         print(json.loads(data))
 
-    fetch_and_store_index_data()
