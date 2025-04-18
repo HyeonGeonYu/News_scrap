@@ -6,7 +6,7 @@ from pytz import timezone
 from datetime import datetime
 from dateutil import parser
 from app.redis_client import redis_client
-from app.test_config import channels
+import app.test_config
 
 # url, 요약 저장 코드
 def fetch_and_store_youtube_data():
@@ -15,7 +15,7 @@ def fetch_and_store_youtube_data():
         today_key = f"processed_urls:{today_date}"
         updated = False
 
-        for channel in channels:
+        for channel in app.test_config.channels:
             # ⛔️ 오늘 이미 처리되었으면 stop 유튜브 API 회피
             country = channel["country"]
             existing_url = redis_client.hget(today_key, country)
@@ -62,52 +62,18 @@ def fetch_and_store_youtube_data():
     except Exception as e:
         return f"저장 중 오류 발생: {str(e)}"
 
-def calculate_moving_average(data, period=100):
-    result = []
-    for i in range(len(data)):
-        if i < period:
-            pass
-        else:
-            avg = sum(d["close"] for d in data[i - period + 1:i + 1]) / period
-            result.append(avg)
-    return result
-
-def calculate_envelope(moving_avg, percentage):
-    upper = []
-    lower = []
-    for avg in moving_avg:
-        upper.append(avg * (1 + percentage))
-        lower.append(avg * (1 - percentage))
-    return upper, lower
-
-
 def fetch_and_store_index_data():
-    try:
-        new_data = fetch_index_info(day_num = 200)  # List of dicts, 날짜 오름차순 정렬이라고 가정
-        index_name = "nasdaq100"
-        redis_key = f"index_data:{index_name.lower()}"
+    for index_name, symbol  in app.test_config.INDEX_SYMBOLS.items():
+        try:
+            new_data = fetch_index_info(symbol, day_num=200)  # 심볼 전달
+            redis_key = f"index_name:{index_name.lower()}"
+            redis_client.set(redis_key, json.dumps(new_data))
+            redis_client.set(f"{redis_key}:updatedAt", datetime.now(timezone("Asia/Seoul")).strftime('%Y-%m-%dT%H:%M:%SZ'))
+            print(f"✅ {len(new_data)}개 지수 데이터(100일평균,종가,+-10%env, +-3%env) 저장 완료")
 
-        moving_avg = calculate_moving_average(new_data, period=100)
-        upper10, lower10 = calculate_envelope(moving_avg, 0.10)
-        upper3, lower3 = calculate_envelope(moving_avg, 0.03)
-
-        trimmed_data = new_data[-100:]
-        # 각 데이터에 해당 계산값 추가
-        for i in range(len(trimmed_data)):
-            trimmed_data[i]["ma100"] = moving_avg[i]
-            trimmed_data[i]["envelope10_upper"] = upper10[i]
-            trimmed_data[i]["envelope10_lower"] = lower10[i]
-            trimmed_data[i]["envelope3_upper"] = upper3[i]
-            trimmed_data[i]["envelope3_lower"] = lower3[i]
-
-        # 최대 100개 유지
-        redis_client.set(redis_key, json.dumps(trimmed_data))
-        redis_client.set(f"{redis_key}:updatedAt", datetime.now(timezone("Asia/Seoul")).strftime('%Y-%m-%dT%H:%M:%SZ'))
-        print(f"✅ {len(trimmed_data)}개 지수 데이터(100일평균,종가,+-10%env, +-3%env) 저장 완료")
-
-        return "✅ 데이터 저장 완료"
-    except Exception as e:
-        return f"저장 중 오류 발생: {str(e)}"
+            return "✅ 데이터 저장 완료"
+        except Exception as e:
+            return f"저장 중 오류 발생: {str(e)}"
 
 def scheduled_store():
     now = datetime.now(timezone('Asia/Seoul'))
@@ -127,7 +93,7 @@ if __name__ == "__main__":
     print(result)
 
     # 저장된 데이터 확인
-    for channel in channels:
+    for channel in app.test_config.channels:
         country = channel["country"]
         data = redis_client.get(f"youtube_data:{country}")
         print("📦 저장된 유튜브 데이터:")

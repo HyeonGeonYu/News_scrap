@@ -26,3 +26,11 @@ channels = [
             "save_fields": "description"
         }
     ]
+
+INDEX_SYMBOLS = {
+    "nasdaq100": "^NDX",
+    "nikkei225": "^N225",
+    "hangseng": "^HSI",
+    "kospi200": "^KS200",
+    "gold": "GC=F"
+}
