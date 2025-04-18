@@ -62,7 +62,7 @@ def get_index_data(index_name: str):
     """
     try:
         # Redis에서 인덱스 데이터 가져오기
-        redis_key = f"index_data:{index_name.lower()}"
+        redis_key = f"index_name:{index_name.lower()}"
         raw_data = redis_client.get(redis_key)
 
         if raw_data:
