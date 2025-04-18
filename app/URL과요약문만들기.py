@@ -51,7 +51,7 @@ def summarize_content(content):
         print("❌ 요약 API 실패:", e)
         return "❌ 요약 실패: GPT 호출 오류"
 
-def find_similar_video_title_id(data, keyword, similarity_threshold=0.7,from_playlist=False):
+def find_similar_video_title_id(data, keyword, similarity_threshold=0.9,from_playlist=False):
     keyword = keyword.lower()
     k_len = len(keyword)
 
@@ -60,37 +60,36 @@ def find_similar_video_title_id(data, keyword, similarity_threshold=0.7,from_pla
             video_id = item["id"].get("videoId")
         else:
             video_id = item["snippet"]["resourceId"]["videoId"]
-
-        videos_check_url = "https://www.googleapis.com/youtube/v3/videos"
-        params = {
-            "part": "contentDetails",
-            "id": video_id,
-            "key": YOUTUBE_API_KEY
-        }
-        response = requests.get(videos_check_url, params=params)
-        video_data = response.json()
-        try:
-            duration = isodate.parse_duration(video_data["items"][0]["contentDetails"]['duration'])
-            # 10분 ~ 2시간 이하 영상만
-            if duration.total_seconds() >= 7200 or duration.total_seconds() <= 600:
-                continue
-        except (KeyError, IndexError, ValueError) as e:
-            print(f"duration 정보 없는id {video_id}: {e}")
-            continue  # 해당 영상을 스킵하고 다음 영상 처리
-
         title = item["snippet"]["title"]
         text = title.lower()
         max_sim = 0.0
 
-        # 슬라이딩 윈도우
+        # 슬라이딩 윈도우로 유사도 측정
         for i in range(len(text) - k_len + 1):
             window = text[i:i + k_len]
             sim = SequenceMatcher(None, keyword, window).ratio()
             if sim > max_sim:
                 max_sim = sim
+                # 유사도가 threshold를 넘으면 그때 duration 확인
+                if max_sim > similarity_threshold:
+                    videos_check_url = "https://www.googleapis.com/youtube/v3/videos"
+                    params = {
+                        "part": "contentDetails",
+                        "id": video_id,
+                        "key": YOUTUBE_API_KEY
+                    }
+                    response = requests.get(videos_check_url, params=params)
+                    video_data = response.json()
 
-            if max_sim > similarity_threshold:
-                return video_id
+                    try:
+                        duration = isodate.parse_duration(video_data["items"][0]["contentDetails"]['duration'])
+                        # 10분 ~ 2시간 사이만 허용
+                        if 600 <= duration.total_seconds() <= 7200:
+                            return video_id
+                    except (KeyError, IndexError, ValueError) as e:
+                        print(f"duration 정보 없는 id {video_id}: {e}")
+                        continue
+    return None  # 찾는 영상이 없을 경우
 
 def get_latest_video_data(channel):
     channel_handle = channel["channel_handle"]
@@ -126,7 +125,7 @@ def get_latest_video_data(channel):
         }
 
         response = requests.get(search_url, params=params)
-        video_id_cid = find_similar_video_title_id(response.json(), keyword, similarity_threshold=0.7)
+        video_id_cid = find_similar_video_title_id(response.json(), keyword)
 
         # playlistid기준 viedo_id
         search_playlist_url = "https://www.googleapis.com/youtube/v3/playlistItems"
@@ -137,7 +136,7 @@ def get_latest_video_data(channel):
             "key": YOUTUBE_API_KEY
         }
         response = requests.get(search_playlist_url, params=params)
-        video_id_plst = find_similar_video_title_id(response.json(), keyword, similarity_threshold=0.7, from_playlist=True)
+        video_id_plst = find_similar_video_title_id(response.json(), keyword, from_playlist=True)
 
         for video_id in [video_id_cid, video_id_plst]:
             if video_id: # 찾은 video id가 있는경우

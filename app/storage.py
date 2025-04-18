@@ -37,13 +37,13 @@ def fetch_and_store_youtube_data():
                 print(f"⏭️ 업로드 날짜:{video_date_str} — 탐색날짜:{today_date}")
                 continue
 
-            # ⛔️ 요약할 내용이 없으면 stop OpenAI API 회피 후 요약내용없이 저장
+            # ⛔️ 요약할 내용이 없으면 stop, 3만자 넘는 경우엔 OpenAI API 회피 후 요약내용없이 저장
             if video_data['summary_content']:
-
                 summary_result = summarize_content(video_data['summary_content'])
                 video_data['summary_result'] = summary_result
             else:
                 video_data['summary_result'] = "요약할 내용(자막 또는 description) 없음."
+                continue
 
             video_data["processedAt"] = datetime.now(timezone("Asia/Seoul")).strftime('%Y-%m-%dT%H:%M:%SZ')
 
