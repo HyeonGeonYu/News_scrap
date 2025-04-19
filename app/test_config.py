@@ -34,3 +34,15 @@ INDEX_SYMBOLS = {
     "kospi200": "^KS200",
     "gold": "GC=F"
 }
+
+CURRENCY_SYMBOLS_KRW = {
+    "usd_krw": "USDKRW=X",     # 미국 달러 ➝ 원화 (USD → KRW)
+    "dxy": "DX-Y.NYB",         # 달러 인덱스 (Dollar Index)
+    "eur_usd": "EURUSD=X",     # 유로 ➝ 달러 (EUR → USD)
+    "jpy_usd": "JPYUSD=X",     # 일본 엔 ➝ 달러 (JPY → USD)
+    "cny_usd": "CNYUSD=X",     # 중국 위안 ➝ 달러 (CNY → USD)
+    "gbp_usd": "GBPUSD=X",     # 영국 파운드 ➝ 달러 (GBP → USD)
+    "cad_usd": "CADUSD=X",     # 캐나다 달러 ➝ 달러 (CAD → USD)
+    "sgd_usd": "SGDUSD=X",     # 싱가포르 달러 ➝ 달러 (SGD → USD)
+}
+

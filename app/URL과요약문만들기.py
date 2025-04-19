@@ -4,27 +4,43 @@ from pathlib import Path
 from dotenv import load_dotenv
 import requests
 import os
+import pytz
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
 # 🔑 YouTube Data API 키 (보안을 위해 환경변수 사용 추천)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # .env에서 불러오기
 OPENAI_API_KEY = os.getenv("OPENAI_API_KE")  # .env에서 불러오기
 import isodate
-
+import subprocess
+import re
 from openai import OpenAI
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 from app.test_config import channels
 
 from datetime import datetime
-import pytz
 
-def utc_to_kst(utc_time_str):
-    utc_time = datetime.strptime(utc_time_str, "%Y-%m-%dT%H:%M:%SZ")
-    utc_zone = pytz.timezone("UTC")
-    kst_zone = pytz.timezone("Asia/Seoul")
-    utc_time = utc_zone.localize(utc_time)
-    kst_time = utc_time.astimezone(kst_zone)
-    return kst_time.strftime("%Y-%m-%dT%H:%M:%SZ")  # 예: '2025-04-17 06:00:00'
+
+def clean_vtt_text(raw_text):
+    # 1. <00:00:01.439> 같은 타임코드 제거
+    text = re.sub(r'<\d{2}:\d{2}:\d{2}\.\d+>', '', raw_text)
+
+    # 2. <c> 태그 제거
+    text = re.sub(r'</?c>', '', text)
+
+    # 3. Kind, Language 같은 메타라인 제거
+    text = re.sub(r'Kind:.*\n|Language:.*\n', '', text)
+
+    # 4. 중복 라인 제거 (바로 연달아 같은 줄이 있는 경우 하나만 유지)
+    lines = text.splitlines()
+    cleaned_lines = []
+    prev_line = ""
+    for line in lines:
+        line = line.strip()
+        if line and line != prev_line:
+            cleaned_lines.append(line)
+            prev_line = line
+
+    return '\n'.join(cleaned_lines).strip()
 def summarize_content(content):
     if len(content) > 30000:
         return "❌ 요약 실패: 글자 수(30000) 초과"
@@ -138,13 +154,14 @@ def get_latest_video_data(channel):
                 videos_check_url = "https://www.googleapis.com/youtube/v3/videos"
                 params = {
                     "part": "snippet",
-                    "id": video_id,
+                    "id": "5qMLkfBPH58",
                     "key": YOUTUBE_API_KEY
                 }
                 response = requests.get(videos_check_url, params=params)
                 data = response.json()
                 if not data.get("items"):
                     continue
+                # 비교 시간, 실제로는 한국시간이 아닌 utc 시간기준임
                 published_time = datetime.strptime(data["items"][0]["snippet"]["publishedAt"], "%Y-%m-%dT%H:%M:%SZ")
                 if latest_time is None or published_time > latest_time:
                     latest_time = published_time
@@ -154,7 +171,7 @@ def get_latest_video_data(channel):
         video_info = latest_video_data["items"][0]
         video_id = video_info['id']
         video_title = video_info["snippet"]["title"]
-        video_pbtime = utc_to_kst(video_info["snippet"]["publishedAt"])
+        video_pbtime = video_info["snippet"]["publishedAt"]
         if "description" == save_fields:
             summary_content = video_info["snippet"]["description"]
         elif "subtitle" == save_fields:
@@ -165,32 +182,11 @@ def get_latest_video_data(channel):
                 "Japan": "ja",
                 "China": "zh"
             }
-            import subprocess
-            import re
+
             language_code = country_to_lang.get(channel['country'], "en")  # 기본은 영어
             caption_filename = f"{video_id}.{language_code}.vtt"
 
-            def clean_vtt_text(raw_text):
-                # 1. <00:00:01.439> 같은 타임코드 제거
-                text = re.sub(r'<\d{2}:\d{2}:\d{2}\.\d+>', '', raw_text)
 
-                # 2. <c> 태그 제거
-                text = re.sub(r'</?c>', '', text)
-
-                # 3. Kind, Language 같은 메타라인 제거
-                text = re.sub(r'Kind:.*\n|Language:.*\n', '', text)
-
-                # 4. 중복 라인 제거 (바로 연달아 같은 줄이 있는 경우 하나만 유지)
-                lines = text.splitlines()
-                cleaned_lines = []
-                prev_line = ""
-                for line in lines:
-                    line = line.strip()
-                    if line and line != prev_line:
-                        cleaned_lines.append(line)
-                        prev_line = line
-
-                return '\n'.join(cleaned_lines).strip()
             try:
                 result = subprocess.run([
                     'yt-dlp',

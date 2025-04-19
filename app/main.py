@@ -40,7 +40,7 @@ def youtube_data():
 
         try:
             data = json.loads(raw_data)
-            data["processedAt"] = int(ts.decode("utf-8"))
+            data['ts'] = ts
             result[country] = data
 
         except Exception as e:
