@@ -3,24 +3,28 @@ import json
 from app.URL과요약문만들기 import get_latest_video_data, summarize_content
 from app.지수정보가져오기 import fetch_index_info
 from pytz import timezone
-from datetime import datetime
 from app.redis_client import redis_client
 import app.test_config
-
+from datetime import datetime
 # url, 요약 저장 코드
 def fetch_and_store_youtube_data():
     try:
-        today_date = datetime.now(timezone("Asia/Seoul")).strftime("%Y-%m-%d")
-        today_key = f"processed_urls:{today_date}"
+        seoul_tz = timezone("Asia/Seoul")
+        today_date = datetime.now(seoul_tz).strftime("%Y-%m-%d")
+        today_key = f"processed_urls:{today_date}" # 한국시간기준으로 바꿈
         updated = False
 
         for channel in app.test_config.channels:
             # ⛔️ 오늘 이미 처리되었으면 stop 유튜브 API 회피
             country = channel["country"]
-            existing_url = redis_client.hget(today_key, country)
+            existing_url = redis_client.hget(today_key, country) #
             if existing_url:
                 print(f"⏭️ {country} — {today_key} : {existing_url.decode()}")
                 continue
+
+            # 서치 시작
+            utc_timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")  # Z는 UTC의 표기법입니다
+            redis_client.set(f"youtube_data_timestamp:{country}", utc_timestamp)
             video_data = get_latest_video_data(channel)
 
             # ⛔️ 이미 저장된 URL과 동일하거나 오늘자 뉴스가 아니면 stop OpenAI API 회피
@@ -50,7 +54,7 @@ def fetch_and_store_youtube_data():
             redis_client.hset(today_key, country, video_data["url"])
             redis_client.expire(today_key, 86400)  # 86400초 = 1일
 
-            redis_client.set(f"youtube_data_timestamp:{country}", str(int(time.time())))
+
 
             print(f"🔔 {country} 새 URL 저장됨: {video_data['url']}")
             updated = True
@@ -60,18 +64,30 @@ def fetch_and_store_youtube_data():
     except Exception as e:
         return f"저장 중 오류 발생: {str(e)}"
 
+def fetch_and_store_currency_data():
+    results = []
+    for index_name, symbol  in app.test_config.CURRENCY_SYMBOLS_KRW.items():
+        try:
+            new_data = fetch_index_info(symbol, day_num=200)  # 심볼 전달
+            redis_key = f"index_name:{index_name.lower()}"
+            redis_client.set(redis_key, json.dumps(new_data))
+            results.append(f"✅ [{index_name.upper()}] {len(new_data)}개 지수 데이터 저장 완료")
+        except Exception as e:
+            results.append(f"❌ [{index_name.upper()}] 저장 중 오류 발생: {str(e)}")
+    return "\n".join(results)
+
 def fetch_and_store_index_data():
+    results = []
+
     for index_name, symbol  in app.test_config.INDEX_SYMBOLS.items():
         try:
             new_data = fetch_index_info(symbol, day_num=200)  # 심볼 전달
             redis_key = f"index_name:{index_name.lower()}"
             redis_client.set(redis_key, json.dumps(new_data))
-            redis_client.set(f"{redis_key}:updatedAt", datetime.now(timezone("Asia/Seoul")).strftime('%Y-%m-%dT%H:%M:%SZ'))
-            print(f"✅ {len(new_data)}개 지수 데이터(100일평균,종가,+-10%env, +-3%env) 저장 완료")
-
-            return f"✅ [{index_name.upper()}] {len(new_data)}개 지수 데이터 저장 완료"
+            results.append(f"✅ [{index_name.upper()}] {len(new_data)}개 지수 데이터 저장 완료")
         except Exception as e:
-            return f"❌ [{index_name.upper()}] 저장 중 오류 발생: {str(e)}"
+            results.append(f"❌ [{index_name.upper()}] 저장 중 오류 발생: {str(e)}")
+    return "\n".join(results)
 
 def scheduled_store():
     now = datetime.now(timezone('Asia/Seoul'))
@@ -79,7 +95,7 @@ def scheduled_store():
         if now.hour == 11 and now.minute == 0:
             print("📈 index data...")
             fetch_and_store_index_data()
-
+            fetch_and_store_currency_data()
         print("⏰ Scheduled store running at", now.strftime("%Y-%m-%d %H:%M"))
         fetch_and_store_youtube_data()
 
@@ -88,15 +104,11 @@ def scheduled_store():
 
 if __name__ == "__main__":
 
-    result = fetch_and_store_index_data()
-    print(result)
-    result = fetch_and_store_youtube_data()
+    # result = fetch_and_store_index_data()
+    # print(result)
+
+    result = fetch_and_store_currency_data()
     print(result)
 
-    # 저장된 데이터 확인
-    for channel in app.test_config.channels:
-        country = channel["country"]
-        data = redis_client.get(f"youtube_data:{country}")
-        print("📦 저장된 유튜브 데이터:")
-        print(json.loads(data))
-
+    #result = fetch_and_store_youtube_data()
+    #print(result)
