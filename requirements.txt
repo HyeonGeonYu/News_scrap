@@ -10,3 +10,4 @@ youtube-transcript-api
 openai
 yfinance
 quandl
+yt-dlp

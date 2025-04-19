@@ -4,7 +4,6 @@ from app.URL과요약문만들기 import get_latest_video_data, summarize_conten
 from app.지수정보가져오기 import fetch_index_info
 from pytz import timezone
 from datetime import datetime
-from dateutil import parser
 from app.redis_client import redis_client
 import app.test_config
 

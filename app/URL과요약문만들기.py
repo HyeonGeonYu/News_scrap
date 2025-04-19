@@ -1,20 +1,15 @@
-import time
 from difflib import SequenceMatcher
 from youtube_transcript_api import YouTubeTranscriptApi
 from pathlib import Path
 from dotenv import load_dotenv
 import requests
 import os
-import difflib
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
 # 🔑 YouTube Data API 키 (보안을 위해 환경변수 사용 추천)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # .env에서 불러오기
 OPENAI_API_KEY = os.getenv("OPENAI_API_KE")  # .env에서 불러오기
 import isodate
-from datetime import datetime
-import re
-import json
 
 from openai import OpenAI
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
@@ -163,27 +158,72 @@ def get_latest_video_data(channel):
         if "description" == save_fields:
             summary_content = video_info["snippet"]["description"]
         elif "subtitle" == save_fields:
+
             country_to_lang = {
                 "Korea": "ko",
                 "USA": "en",
                 "Japan": "ja",
                 "China": "zh"
             }
+            import subprocess
+            import re
             language_code = country_to_lang.get(channel['country'], "en")  # 기본은 영어
+            caption_filename = f"{video_id}.{language_code}.vtt"
+
+            def clean_vtt_text(raw_text):
+                # 1. <00:00:01.439> 같은 타임코드 제거
+                text = re.sub(r'<\d{2}:\d{2}:\d{2}\.\d+>', '', raw_text)
+
+                # 2. <c> 태그 제거
+                text = re.sub(r'</?c>', '', text)
+
+                # 3. Kind, Language 같은 메타라인 제거
+                text = re.sub(r'Kind:.*\n|Language:.*\n', '', text)
+
+                # 4. 중복 라인 제거 (바로 연달아 같은 줄이 있는 경우 하나만 유지)
+                lines = text.splitlines()
+                cleaned_lines = []
+                prev_line = ""
+                for line in lines:
+                    line = line.strip()
+                    if line and line != prev_line:
+                        cleaned_lines.append(line)
+                        prev_line = line
+
+                return '\n'.join(cleaned_lines).strip()
             try:
-                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-                generated_transcript = next(
-                    (t for t in transcript_list if t.is_generated and t.language_code == language_code),
-                    next((t for t in transcript_list if t.is_generated), None)
-                )
-                if generated_transcript:
-                    transcript = generated_transcript.fetch()
-                    full_text = "\n".join([entry.text for entry in transcript])
-                    summary_content = full_text
-                else:
+                result = subprocess.run([
+                    'yt-dlp',
+                    '--skip-download',
+                    '--write-auto-sub',
+                    f'--sub-lang={language_code}',
+                    f'--output={video_id}.%(ext)s',
+                    f'https://www.youtube.com/watch?v={video_id}'
+                ], capture_output=True, text=True)
+
+                if result.returncode != 0:
+                    print("❌ yt-dlp 실행 오류:", result.stderr)
                     summary_content = None
+                elif os.path.exists(caption_filename):
+                    # 파일에서 텍스트 추출
+                    with open(caption_filename, 'r', encoding='utf-8') as f:
+                        vtt_content = f.read()
+
+                    # .vtt에서 타임코드 등 제거
+                    lines = vtt_content.splitlines()
+                    subtitle_lines = [line for line in lines if
+                                      not re.match(r'^(\d{2}:\d{2}:\d{2}\.\d+)|WEBVTT|^\s*$', line)]
+                    summary_content = "\n".join(subtitle_lines).strip()
+                    summary_content = clean_vtt_text(summary_content).replace('\n', ' ').strip()
+
+                    # 임시 파일 삭제
+                    os.remove(caption_filename)
+                else:
+                    print("❌ 자막 파일 생성 안됨.")
+                    summary_content = None
+
             except Exception as e:
-                print("❌ 자막 가져오기 실패:", e)
+                print("❌ 자막 처리 실패:", e)
                 summary_content = None
 
     return {
