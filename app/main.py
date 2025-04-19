@@ -5,6 +5,7 @@ from app.redis_client import redis_client
 from app.storage import scheduled_store
 import json
 from datetime import datetime
+from app.test_config import channels
 app = FastAPI()
 
 # 스케줄러 시작
@@ -29,27 +30,21 @@ def head_video():
 
 @app.get("/youtube")
 def youtube_data():
-    countries = ["Korea", "USA", "Japan", "China"]
+
+    countries = [item['country'] for item in channels]
     result = {}
 
     for country in countries:
         raw_data = redis_client.get(f"youtube_data:{country}")
         ts = redis_client.get(f"youtube_data_timestamp:{country}")
 
-        if raw_data:
-            try:
-                data = json.loads(raw_data)
+        try:
+            data = json.loads(raw_data)
+            data["processedAt"] = int(ts.decode("utf-8"))
+            result[country] = data
 
-                if ts:
-                    data["processedAt"] = int(ts.decode("utf-8"))
-                    data["publishedAtFormatted"] = datetime.strptime(
-                        data["publishedAt"], "%Y-%m-%dT%H:%M:%SZ"
-                    ).strftime("%Y-%m-%d %H:%M")
-
-                result[country] = data
-
-            except Exception as e:
-                result[country] = {"error": f"{country} 처리 중 오류: {str(e)}"}
+        except Exception as e:
+            result[country] = {"error": f"{country} 처리 중 오류: {str(e)}"}
     return result
 
 # 나스닥 데이터 반환 API 추가

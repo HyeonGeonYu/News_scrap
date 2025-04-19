@@ -44,14 +44,13 @@ def fetch_and_store_youtube_data():
                 video_data['summary_result'] = "요약할 내용(자막 또는 description) 없음."
                 continue
 
-            video_data["processedAt"] = datetime.now(timezone("Asia/Seoul")).strftime('%Y-%m-%dT%H:%M:%SZ')
-
             # ✅ Redis에 나라별로 개별 저장
-            redis_client.set(f"youtube_data:{country}", json.dumps(video_data))
-            redis_client.set(f"youtube_data_timestamp:{country}", str(int(time.time())))
 
+            redis_client.set(f"youtube_data:{country}", json.dumps(video_data))
             redis_client.hset(today_key, country, video_data["url"])
             redis_client.expire(today_key, 86400)  # 86400초 = 1일
+
+            redis_client.set(f"youtube_data_timestamp:{country}", str(int(time.time())))
 
             print(f"🔔 {country} 새 URL 저장됨: {video_data['url']}")
             updated = True
