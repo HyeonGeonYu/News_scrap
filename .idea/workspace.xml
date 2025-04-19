@@ -54,7 +54,7 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "git-widget-placeholder": "main",
     "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/Hyeongeon/Hansoldeco_s3_comp/News_scrap",
+    "last_opened_file_path": "C:/Users/Hyeongeon/Hansoldeco_s3_comp/my-frontend",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -275,7 +275,7 @@
       <workItem from="1744940943551" duration="45000" />
       <workItem from="1744941078689" duration="4388000" />
       <workItem from="1744952732417" duration="879000" />
-      <workItem from="1745036653276" duration="1027000" />
+      <workItem from="1745036653276" duration="2455000" />
     </task>
     <servers />
   </component>
@@ -287,7 +287,7 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>260</line>
+          <line>262</line>
           <option name="timeStamp" value="153" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">

@@ -226,6 +226,24 @@ def get_latest_video_data(channel):
                 print("❌ 자막 처리 실패:", e)
                 summary_content = None
 
+            """
+            try:
+                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+                generated_transcript = next(
+                    (t for t in transcript_list if t.is_generated and t.language_code == language_code),
+                    next((t for t in transcript_list if t.is_generated), None)
+                )
+                if generated_transcript:
+                    transcript = generated_transcript.fetch()
+                    full_text = "\n".join([entry.text for entry in transcript])
+                    summary_content = full_text
+                else:
+                    summary_content = None
+            except Exception as e:
+                print("❌ 자막 가져오기 실패:", e)
+                summary_content = None
+            """
+
     return {
             "url": f"https://www.youtube.com/watch?v={video_id}",
             "title": video_title,
