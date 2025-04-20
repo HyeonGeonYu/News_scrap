@@ -6,6 +6,7 @@ from pytz import timezone
 from app.redis_client import redis_client
 import app.test_config
 from datetime import datetime
+from app.test_config import ALL_SYMBOLS
 # url, 요약 저장 코드
 def fetch_and_store_youtube_data():
     try:
@@ -65,7 +66,6 @@ def fetch_and_store_youtube_data():
         return f"저장 중 오류 발생: {str(e)}"
 
 def fetch_and_store_chart_data():
-    from app.test_config import ALL_SYMBOLS
     results = []
 
     for category, symbol_dict in ALL_SYMBOLS.items():

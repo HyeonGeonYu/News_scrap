@@ -37,14 +37,16 @@ INDEX_SYMBOLS = {
 }
 
 CURRENCY_SYMBOLS = {
-    "usd_krw": "USDKRW=X",     # 미국 달러 ➝ 원화 (USD → KRW)
-    "dxy": "DX-Y.NYB",         # 달러 인덱스 (Dollar Index)
-    "eur_usd": "EURUSD=X",     # 유로 ➝ 달러 (EUR → USD)
-    "jpy_usd": "JPYUSD=X",     # 일본 엔 ➝ 달러 (JPY → USD)
-    "cny_usd": "CNYUSD=X",     # 중국 위안 ➝ 달러 (CNY → USD)
-    "gbp_usd": "GBPUSD=X",     # 영국 파운드 ➝ 달러 (GBP → USD)
-    "cad_usd": "CADUSD=X",     # 캐나다 달러 ➝ 달러 (CAD → USD)
-    "sgd_usd": "SGDUSD=X",     # 싱가포르 달러 ➝ 달러 (SGD → USD)
+    "usd_krw": "USDKRW=X",     # 한국 원
+    "usd_dxy": "DX-Y.NYB",     # 달러 인덱스 (참고용)
+    "usd_jpy": "USDJPY=X",     # 일본 엔
+    "usd_cny": "USDCNY=X",     # 중국 위안
+    "usd_eur": "USDEUR=X",     # 유로
+    "usd_gbp": "USDGBP=X",     # 영국 파운드
+    "usd_inr": "USDINR=X",     # 인도 루피
+    "usd_thb": "USDTHB=X",     # 태국 바트
+    "usd_vnd": "USDVND=X",     # 베트남 동
+    "usd_sgd": "USDSGD=X",     # 싱가포르 달러
 }
 
 COMMODITY_SYMBOLS = {
