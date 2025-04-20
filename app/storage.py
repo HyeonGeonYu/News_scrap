@@ -64,59 +64,39 @@ def fetch_and_store_youtube_data():
     except Exception as e:
         return f"저장 중 오류 발생: {str(e)}"
 
-def fetch_and_store_currency_data():
-    all_currency_data = {}
+def fetch_and_store_chart_data():
+    from app.test_config import ALL_SYMBOLS
     results = []
 
-    for index_name, symbol in app.test_config.CURRENCY_SYMBOLS_KRW.items():
-        try:
-            new_data = fetch_index_info(symbol, day_num=200)
-            all_currency_data[index_name] = new_data
-            results.append(f"✅ [{index_name.upper()}] {len(new_data)}개 환율 데이터 수집 완료")
-        except Exception as e:
-            results.append(f"❌ [{index_name.upper()}] 수집 중 오류 발생: {str(e)}")
+    for category, symbol_dict in ALL_SYMBOLS.items():
+        category_data = {}
 
-    try:
-        redis_client.set("currency_data:all", json.dumps(all_currency_data))
-        results.append("✅ 전체 환율 데이터 Redis에 저장 완료")
-    except Exception as e:
-        results.append(f"❌ 전체 환율 데이터 저장 중 오류 발생: {str(e)}")
+        for name, symbol in symbol_dict.items():
+            try:
+                new_data = fetch_index_info(symbol, day_num=200)
+                category_data[name] = new_data
+                results.append(f"✅ [{category.upper()} - {name.upper()}] {len(new_data)}개 데이터 수집 완료")
+            except Exception as e:
+                results.append(f"❌ [{category.upper()} - {name.upper()}] 수집 중 오류 발생: {str(e)}")
+
+        try:
+            redis_key = f"chart_data:{category}"
+            redis_client.set(redis_key, json.dumps(category_data))
+            results.append(f"✅ 전체 {category.upper()} 데이터 Redis에 저장 완료")
+        except Exception as e:
+            results.append(f"❌ 전체 {category.upper()} 데이터 저장 중 오류 발생: {str(e)}")
 
     return "\n".join(results)
 
-
-def fetch_and_store_index_data():
-    all_index_data = {}
-    results = []
-
-    for index_name, symbol in app.test_config.INDEX_SYMBOLS.items():
-        try:
-            new_data = fetch_index_info(symbol, day_num=200)
-            all_index_data[index_name] = new_data
-            results.append(f"✅ [{index_name.upper()}] {len(new_data)}개 지수 데이터 수집 완료")
-        except Exception as e:
-            results.append(f"❌ [{index_name.upper()}] 수집 중 오류 발생: {str(e)}")
-
-    try:
-        redis_client.set("index_data:all", json.dumps(all_index_data))
-        results.append("✅ 전체 지수 데이터 Redis에 저장 완료")
-    except Exception as e:
-        results.append(f"❌ 전체 데이터 저장 중 오류 발생: {str(e)}")
-
-    return "\n".join(results)
 
 
 def scheduled_store():
     now = datetime.now(timezone('Asia/Seoul'))
     if 11 <= now.hour < 15:  # 11시 ~ 14시 59분
         if now.hour == 11 and 0 <= now.minute < 10:
-            print("📈 Index data 저장 시작...")
-            index_result = fetch_and_store_index_data()
-            print(index_result)
-
-            print("💱 Currency data 저장 시작...")
-            currency_result = fetch_and_store_currency_data()
-            print(currency_result)
+            print("📈 chart data 저장 시작...")
+            stored_result = fetch_and_store_chart_data()
+            print(stored_result)
 
         print("⏰ Scheduled store running at", now.strftime("%Y-%m-%d %H:%M"))
         youtube_result = fetch_and_store_youtube_data()
