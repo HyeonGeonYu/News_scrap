@@ -28,14 +28,15 @@ channels = [
     ]
 
 INDEX_SYMBOLS = {
-    "nasdaq100": "^NDX",
-    "nikkei225": "^N225",
-    "hangseng": "^HSI",
-    "kospi200": "^KS200",
-    "gold": "GC=F"
+    "nasdaq100": "^NDX",           # 나스닥 100
+    "nikkei225": "^N225",          # 닛케이 225
+    "hangseng": "^HSI",            # 항셍
+    "kospi200": "^KS200",          # 코스피 200
+    "eurostoxx50": "^STOXX50E",    # 유로스톡스 50
+    "dax": "^GDAXI",               # 독일 DAX
 }
 
-CURRENCY_SYMBOLS_KRW = {
+CURRENCY_SYMBOLS = {
     "usd_krw": "USDKRW=X",     # 미국 달러 ➝ 원화 (USD → KRW)
     "dxy": "DX-Y.NYB",         # 달러 인덱스 (Dollar Index)
     "eur_usd": "EURUSD=X",     # 유로 ➝ 달러 (EUR → USD)
@@ -44,5 +45,20 @@ CURRENCY_SYMBOLS_KRW = {
     "gbp_usd": "GBPUSD=X",     # 영국 파운드 ➝ 달러 (GBP → USD)
     "cad_usd": "CADUSD=X",     # 캐나다 달러 ➝ 달러 (CAD → USD)
     "sgd_usd": "SGDUSD=X",     # 싱가포르 달러 ➝ 달러 (SGD → USD)
+}
+
+COMMODITY_SYMBOLS = {
+    "gold": "GC=F",                # 금
+    "crude_oil": "CL=F",           # 서부 텍사스산 원유 (WTI)
+    "natural_gas": "NG=F",         # 천연가스
+    "corn": "ZC=F",                # 옥수수
+    "wheat": "ZW=F",               # 밀
+    "live_cattle": "LE=F",         # 생우
+}
+
+ALL_SYMBOLS = {
+    "index": INDEX_SYMBOLS,
+    "commodity": COMMODITY_SYMBOLS,
+    "currency": CURRENCY_SYMBOLS,  # 기존 선언한 통화
 }
 

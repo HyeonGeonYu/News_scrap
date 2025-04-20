@@ -4,7 +4,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from app.redis_client import redis_client
 from app.storage import scheduled_store
 import json
-from datetime import datetime
 from app.test_config import channels
 app = FastAPI()
 
@@ -47,24 +46,21 @@ def youtube_data():
             result[country] = {"error": f"{country} 처리 중 오류: {str(e)}"}
     return result
 
-# 나스닥 데이터 반환 API 추가
-@app.get("/index_data/{index_name}")
-def get_index_data(index_name: str):
+
+@app.get("/chartdata/{category}")
+def get_chart_data(category: str):
     """
-    나스닥 100 등 다른 인덱스의 데이터를 반환하는 API
-    :param index_name: 인덱스 이름 (예: nasdaq100, hshares, kospi 등)
-    :return: 지정된 인덱스의 데이터
+    통합 차트 데이터 API
+    :param category: 'index' 또는 'currency'
+    :return: 해당 category의 모든 항목 데이터
     """
     try:
-        # Redis에서 인덱스 데이터 가져오기
-        redis_key = f"index_name:{index_name.lower()}"
-        raw_data = redis_client.get(redis_key)
-
-        if raw_data:
-            data = json.loads(raw_data)
-            return {"data": data}
+        redis_key = f"chart_data:{category}"  # 저장 시에도 이렇게 되어 있음
+        result = redis_client.get(redis_key)
+        if result:
+            return json.loads(result)  # 반드시 파싱해서 dict 형태로 리턴
         else:
-            return {"error": f"{index_name} 데이터가 존재하지 않습니다."}
+            return {"error": f"'{category}'에 해당하는 데이터가 없습니다."}
 
     except Exception as e:
-        return {"error": f"데이터를 가져오는 중 오류 발생: {str(e)}"}
+        return {"error": f"데이터 가져오기 실패: {str(e)}"}
