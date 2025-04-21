@@ -2,68 +2,69 @@ import time
 import json
 from app.URL과요약문만들기 import get_latest_video_data, summarize_content
 from app.지수정보가져오기 import fetch_index_info
-from pytz import timezone
+from pytz import timezone, utc
 from app.redis_client import redis_client
-import app.test_config
 from datetime import datetime
-from app.test_config import ALL_SYMBOLS
+from app.test_config import ALL_SYMBOLS, channels
 # url, 요약 저장 코드
+def convert_to_kst(published_utc_str):
+    seoul_tz = timezone("Asia/Seoul")
+    published_utc = datetime.strptime(published_utc_str, "%Y-%m-%dT%H:%M:%SZ")
+    published_kst = published_utc.replace(tzinfo=utc).astimezone(seoul_tz)
+    return published_kst
+
 def fetch_and_store_youtube_data():
     try:
+
         seoul_tz = timezone("Asia/Seoul")
-        today_date = datetime.now(seoul_tz).strftime("%Y-%m-%d")
-        today_key = f"processed_urls:{today_date}" # 한국시간기준으로 바꿈
+        today_date = datetime.now(seoul_tz).date().strftime("%Y-%m-%d")
         updated = False
 
-        for channel in app.test_config.channels:
-            # ⛔️ 오늘 이미 처리되었으면 stop 유튜브 API 회피
+        for channel in channels:
             country = channel["country"]
-            existing_url = redis_client.hget(today_key, country) #
-            if existing_url:
-                print(f"⏭️ {country} — {today_key} : {existing_url.decode()}")
-                continue
 
-            # 서치 시작
-            utc_timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")  # Z는 UTC의 표기법입니다
-            redis_client.set(f"youtube_data_timestamp:{country}", utc_timestamp)
-            video_data = get_latest_video_data(channel)
-
-            # ⛔️ 이미 저장된 URL과 동일하거나 오늘자 뉴스가 아니면 stop OpenAI API 회피
-
-            video_date_str = video_data['publishedAt'].split('T')[0]
-            existing_url_str = redis_client.hget(today_key, country).decode() if existing_url else None
-            if existing_url_str==video_data['url']:
-                print(f"⏭️ {country} — 이전 URL과 동일: {existing_url.decode()}")
-                continue
-
-            # ⛔️ 오늘 올라온 영상이 아님
-            if video_date_str != today_date:
-                print(f"⏭️ 업로드 날짜:{video_date_str} — 탐색날짜:{today_date}")
-                continue
-
-            # ⛔️ 요약할 내용이 없으면 stop, 3만자 넘는 경우엔 OpenAI API 회피 후 요약내용없이 저장
-            if video_data['summary_content']:
-                summary_result = summarize_content(video_data['summary_content'])
-                video_data['summary_result'] = summary_result
+            # 저장되어있는 데이터의 저장된 날짜 확인
+            existing_raw = redis_client.hget("youtube_data", country)
+            if existing_raw:
+                existing_data = json.loads(existing_raw)
+                # existing_data에서 processed_time 가져오기
+                processed_time = existing_data.get('processed_time')
+                if processed_time:
+                    processed_date = convert_to_kst(processed_time).strftime("%Y-%m-%d")
+                    if processed_date == today_date:
+                        print(f"⏭️ {country} — 오늘 데이터 이미 존재")
+                        continue  # 오늘 데이터는 이미 있음, 넘어감
+                else:
+                    print(f"⚠️ {country} — processed_time 없음, 새로 조회합니다.")
             else:
-                video_data['summary_result'] = "요약할 내용(자막 또는 description) 없음."
+                print(f"💡 {country} — 기존 데이터 없음, 새로 조회합니다.")
+
+                # existing_data에서 processed_time 가져오기
+            # 🔍 새 영상 서치
+            video_data = get_latest_video_data(channel)
+            video_date_str = convert_to_kst(video_data['publishedAt']).strftime("%Y-%m-%d")
+
+            # ✅ 오늘 영상인지 확인
+            if video_date_str != today_date:
+                print(f"⏭️ {country} — 오늘 영상 아님 ({video_date_str})")
                 continue
 
-            # ✅ Redis에 나라별로 개별 저장
+            # ✅ 요약 생성
+            summary_result = summarize_content(video_data['summary_content'])
+            video_data['summary_result'] = summary_result
 
-            redis_client.set(f"youtube_data:{country}", json.dumps(video_data))
-            redis_client.hset(today_key, country, video_data["url"])
-            redis_client.expire(today_key, 86400)  # 86400초 = 1일
+            # ✅ 저장 시간 추가 (UTC 기준)
+            video_data['processed_time'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-
-
-            print(f"🔔 {country} 새 URL 저장됨: {video_data['url']}")
+            # ✅ Redis에 해당 국가만 저장 (덮어쓰기)
+            redis_client.hset("youtube_data", country, json.dumps(video_data))
+            print(f"🔔 {country} 데이터 저장됨: {video_data['url']}")
             updated = True
 
-
         return "✅ 데이터 저장 완료" if updated else "✅ 모든 데이터는 이미 최신 상태입니다."
+
     except Exception as e:
-        return f"저장 중 오류 발생: {str(e)}"
+        return f"❌ 저장 중 오류 발생: {str(e)}"
 
 def fetch_and_store_chart_data():
     results = []
@@ -92,12 +93,10 @@ def fetch_and_store_chart_data():
 
 def scheduled_store():
     now = datetime.now(timezone('Asia/Seoul'))
+    print("📈 chart data 저장 시작...")
+    stored_result = fetch_and_store_chart_data()
+    print(stored_result)
     if 11 <= now.hour < 15:  # 11시 ~ 14시 59분
-        if now.hour == 11 and 0 <= now.minute < 10:
-            print("📈 chart data 저장 시작...")
-            stored_result = fetch_and_store_chart_data()
-            print(stored_result)
-
         print("⏰ Scheduled store running at", now.strftime("%Y-%m-%d %H:%M"))
         youtube_result = fetch_and_store_youtube_data()
         print(youtube_result)
@@ -109,9 +108,8 @@ if __name__ == "__main__":
 
     # result = fetch_and_store_index_data()
     # print(result)
-    scheduled_store()
     # result = fetch_and_store_currency_data()
     # print(result)
 
-    #result = fetch_and_store_youtube_data()
-    #print(result)
+    result = fetch_and_store_youtube_data()
+    print(result)

@@ -42,10 +42,12 @@ def clean_vtt_text(raw_text):
 
     return '\n'.join(cleaned_lines).strip()
 def summarize_content(content):
+    if content is None:
+        return None
     if len(content) > 30000:
         return "❌ 요약 실패: 글자 수(30000) 초과"
-    if not content.strip():
-        return "❌ 요약 실패: 내용 없음"
+    if not content.strip(): #공백만있는경우
+        return None
 
     try:
 
@@ -95,7 +97,7 @@ def find_similar_video_title_id(data, keyword, similarity_threshold=0.9,from_pla
                     try:
                         duration = isodate.parse_duration(video_data["items"][0]["contentDetails"]['duration'])
                         # 10분 ~ 2시간 사이만 허용
-                        if 600 <= duration.total_seconds() <= 7200:
+                        if 300 <= duration.total_seconds() <= 7200:
                             return video_id
                     except (KeyError, IndexError, ValueError) as e:
                         print(f"duration 정보 없는 id {video_id}: {e}")
@@ -154,7 +156,7 @@ def get_latest_video_data(channel):
                 videos_check_url = "https://www.googleapis.com/youtube/v3/videos"
                 params = {
                     "part": "snippet",
-                    "id": "5qMLkfBPH58",
+                    "id": video_id,
                     "key": YOUTUBE_API_KEY
                 }
                 response = requests.get(videos_check_url, params=params)
@@ -184,45 +186,6 @@ def get_latest_video_data(channel):
             }
 
             language_code = country_to_lang.get(channel['country'], "en")  # 기본은 영어
-            caption_filename = f"{video_id}.{language_code}.vtt"
-
-
-            try:
-                result = subprocess.run([
-                    'yt-dlp',
-                    '--skip-download',
-                    '--write-auto-sub',
-                    f'--sub-lang={language_code}',
-                    f'--output={video_id}.%(ext)s',
-                    f'https://www.youtube.com/watch?v={video_id}'
-                ], capture_output=True, text=True)
-
-                if result.returncode != 0:
-                    print("❌ yt-dlp 실행 오류:", result.stderr)
-                    summary_content = None
-                elif os.path.exists(caption_filename):
-                    # 파일에서 텍스트 추출
-                    with open(caption_filename, 'r', encoding='utf-8') as f:
-                        vtt_content = f.read()
-
-                    # .vtt에서 타임코드 등 제거
-                    lines = vtt_content.splitlines()
-                    subtitle_lines = [line for line in lines if
-                                      not re.match(r'^(\d{2}:\d{2}:\d{2}\.\d+)|WEBVTT|^\s*$', line)]
-                    summary_content = "\n".join(subtitle_lines).strip()
-                    summary_content = clean_vtt_text(summary_content).replace('\n', ' ').strip()
-
-                    # 임시 파일 삭제
-                    os.remove(caption_filename)
-                else:
-                    print("❌ 자막 파일 생성 안됨.")
-                    summary_content = None
-
-            except Exception as e:
-                print("❌ 자막 처리 실패:", e)
-                summary_content = None
-
-            """
             try:
                 transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
                 generated_transcript = next(
@@ -238,7 +201,7 @@ def get_latest_video_data(channel):
             except Exception as e:
                 print("❌ 자막 가져오기 실패:", e)
                 summary_content = None
-            """
+
 
     return {
             "url": f"https://www.youtube.com/watch?v={video_id}",
