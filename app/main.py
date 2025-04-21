@@ -10,7 +10,7 @@ app = FastAPI()
 # 스케줄러 시작
 from apscheduler.triggers.cron import CronTrigger
 scheduler = BackgroundScheduler()
-trigger = CronTrigger(minute='0,10,20,30,40,50')  # 매 10분마다
+trigger = CronTrigger(minute='0,15,30,45')  # 매 15분마다
 scheduler.add_job(scheduled_store, trigger=trigger)
 scheduler.start()
 
@@ -23,23 +23,16 @@ app.add_middleware(
     allow_headers=["*"],  # 모든 헤더 허용
 )
 
-@app.head("/youtube")
-def head_video():
-    return {}  # HEAD 요청은 본문 없이 응답 가능
-
 @app.get("/youtube")
 def youtube_data():
-
-    countries = [item['country'] for item in channels]
     result = {}
+    all_data = redis_client.hgetall("youtube_data")
 
-    for country in countries:
-        raw_data = redis_client.get(f"youtube_data:{country}")
-        ts = redis_client.get(f"youtube_data_timestamp:{country}")
-
+    for country_bytes, raw_data_bytes in all_data.items():
+        country = country_bytes.decode()
         try:
+            raw_data = raw_data_bytes.decode()
             data = json.loads(raw_data)
-            data['ts'] = ts
             result[country] = data
 
         except Exception as e:
