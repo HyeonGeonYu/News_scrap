@@ -2,6 +2,8 @@ import time
 import json
 from app.URL과요약문만들기 import get_latest_video_data, summarize_content
 from app.지수정보가져오기 import fetch_index_info
+from app.휴장일구하기 import get_market_holidays
+
 from pytz import timezone, utc
 from app.redis_client import redis_client
 from datetime import datetime
@@ -66,8 +68,6 @@ def fetch_and_store_youtube_data():
     except Exception as e:
         return f"❌ 저장 중 오류 발생: {str(e)}"
 
-
-
 def fetch_and_store_chart_data():
     results = []
 
@@ -100,6 +100,21 @@ def fetch_and_store_chart_data():
 
     return "\n".join(results)
 
+def fetch_and_store_holiday_data():
+    results = []
+    try:
+
+        holiday_data = get_market_holidays()
+        redis_key = "market_holidays"
+        timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        new_data_str = json.dumps(holiday_data, ensure_ascii=False, sort_keys=True)
+        redis_client.hset(redis_key, "all_holidays", new_data_str)
+        redis_client.hset(redis_key, "all_holidays_timestamp", timestamp)
+        results.append(f"✅ 전체 공휴일 데이터 Redis에 저장 완료 (저장 시간: {timestamp})")
+
+    except Exception as e:
+        results.append(f"❌ 전체 공휴일 데이터 처리 중 오류 발생: {str(e)}")
+
 
 def scheduled_store():
     now = datetime.now(timezone('Asia/Seoul'))
@@ -111,11 +126,32 @@ def scheduled_store():
         youtube_result = fetch_and_store_youtube_data()
         print(youtube_result)
 
+    # ✅ 월요일일 때만 실행
+    if now.weekday() == 0:  # 0 = 월요일
+        print("📅 월요일: 휴일 데이터 저장 체크 중...")
 
+        try:
+            timestamp_str = redis_client.hget("market_holidays", "all_holidays_timestamp")
+            if timestamp_str:
+                timestamp = datetime.strptime(timestamp_str.decode(), "%Y-%m-%dT%H:%M:%SZ")
+                timestamp_kst = timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('Asia/Seoul'))
+
+                if timestamp_kst.date() == now.date():
+                    print("⏭️ 오늘 이미 휴일 데이터가 저장됨. 생략합니다.")
+                    return
+
+            # 저장 안 되어 있거나 날짜가 오늘이 아니면 실행
+            holiday_result = fetch_and_store_holiday_data()
+            print(holiday_result)
+
+        except Exception as e:
+            print(f"❌ Redis에서 timestamp 확인 중 오류 발생: {str(e)}")
 
 
 if __name__ == "__main__":
-    result = fetch_and_store_chart_data()
+    # result = fetch_and_store_chart_data()
+    # print(result)
+    result = fetch_and_store_holiday_data()
     print(result)
     # result = fetch_and_store_index_data()
     # print(result)
