@@ -39,19 +39,19 @@ def youtube_data():
             result[country] = {"error": f"{country} 처리 중 오류: {str(e)}"}
     return result
 
-
 @app.get("/chartdata/{category}")
 def get_chart_data(category: str):
     """
     통합 차트 데이터 API
-    :param category: 'index' 또는 'currency'
-    :return: 해당 category의 모든 항목 데이터
+    :param category: 'index', 'currency', 'commodity'
+    :return: 해당 category의 모든 항목 데이터 (ex: 전체 kospi, nasdaq 등)
     """
     try:
-        redis_key = f"chart_data:{category}"  # 저장 시에도 이렇게 되어 있음
-        result = redis_client.get(redis_key)
+        redis_key = "chart_data"  # HSET으로 저장된 hash key
+        result = redis_client.hget(redis_key, category)
+
         if result:
-            return json.loads(result)  # 반드시 파싱해서 dict 형태로 리턴
+            return json.loads(result)  # JSON 파싱해서 dict 반환
         else:
             return {"error": f"'{category}'에 해당하는 데이터가 없습니다."}
 
