@@ -66,6 +66,8 @@ def fetch_and_store_youtube_data():
     except Exception as e:
         return f"❌ 저장 중 오류 발생: {str(e)}"
 
+
+
 def fetch_and_store_chart_data():
     results = []
 
@@ -81,14 +83,22 @@ def fetch_and_store_chart_data():
                 results.append(f"❌ [{category.upper()} - {name.upper()}] 수집 중 오류 발생: {str(e)}")
 
         try:
-            redis_key = f"chart_data:{category}"
-            redis_client.set(redis_key, json.dumps(category_data))
-            results.append(f"✅ 전체 {category.upper()} 데이터 Redis에 저장 완료")
+            redis_key = "chart_data"
+            new_data_str = json.dumps(category_data, sort_keys=True)
+
+            existing_data_raw = redis_client.hget(redis_key, category)
+            existing_data_str = existing_data_raw.decode() if existing_data_raw else None
+
+            if existing_data_str == new_data_str:
+                results.append(f"⏭️ {category.upper()} 데이터 변경 없음, 저장 생략")
+            else:
+                redis_client.hset(redis_key, category, new_data_str)
+                results.append(f"✅ 전체 {category.upper()} 데이터 Redis에 저장 완료")
+
         except Exception as e:
             results.append(f"❌ 전체 {category.upper()} 데이터 저장 중 오류 발생: {str(e)}")
 
     return "\n".join(results)
-
 
 
 def scheduled_store():
@@ -105,11 +115,12 @@ def scheduled_store():
 
 
 if __name__ == "__main__":
-
+    result = fetch_and_store_chart_data()
+    print(result)
     # result = fetch_and_store_index_data()
     # print(result)
     # result = fetch_and_store_currency_data()
     # print(result)
 
-    result = fetch_and_store_youtube_data()
-    print(result)
+    # result = fetch_and_store_youtube_data()
+    # print(result)
