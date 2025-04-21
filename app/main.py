@@ -57,3 +57,28 @@ def get_chart_data(category: str):
 
     except Exception as e:
         return {"error": f"데이터 가져오기 실패: {str(e)}"}
+
+@app.get("/market-holidays")
+def get_market_holidays_api():
+    result = {}
+    try:
+        all_data_raw = redis_client.hget("market_holidays", "all_holidays")
+        timestamp_raw = redis_client.hget("market_holidays", "all_holidays_timestamp")
+
+        # 데이터가 없으면 오류 메시지 반환
+        if not all_data_raw or not timestamp_raw:
+            result["error"] = "공휴일 데이터가 존재하지 않거나, 시간 정보가 없습니다."
+            return result
+
+            # 공휴일 데이터 및 저장 시간 디코딩
+        all_data = json.loads(all_data_raw.decode())
+        timestamp = timestamp_raw.decode()
+
+        # 결과에 공휴일 데이터와 저장 시간을 함께 추가
+        result["holidays"] = all_data
+        result["timestamp"] = timestamp
+
+        return result
+    except Exception as e:
+        result["error"] = f"공휴일 데이터를 가져오는 중 오류가 발생했습니다: {str(e)}"
+        return result
