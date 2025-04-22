@@ -78,6 +78,8 @@ def fetch_and_store_chart_data():
             try:
                 new_data = fetch_index_info(symbol, day_num=200)
                 category_data[name] = new_data
+
+
                 results.append(f"✅ [{category.upper()} - {name.upper()}] {len(new_data)}개 데이터 수집 완료")
             except Exception as e:
                 results.append(f"❌ [{category.upper()} - {name.upper()}] 수집 중 오류 발생: {str(e)}")
@@ -92,6 +94,8 @@ def fetch_and_store_chart_data():
             if existing_data_str == new_data_str:
                 results.append(f"⏭️ {category.upper()} 데이터 변경 없음, 저장 생략")
             else:
+                procecced_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+                redis_client.hset(redis_key, category+"_procecced_time", procecced_time)
                 redis_client.hset(redis_key, category, new_data_str)
                 results.append(f"✅ 전체 {category.upper()} 데이터 Redis에 저장 완료")
 
@@ -149,10 +153,10 @@ def scheduled_store():
 
 
 if __name__ == "__main__":
-    # result = fetch_and_store_chart_data()
-    # print(result)
-    result = fetch_and_store_holiday_data()
+    result = fetch_and_store_chart_data()
     print(result)
+    # result = fetch_and_store_holiday_data()
+    # print(result)
     # result = fetch_and_store_index_data()
     # print(result)
     # result = fetch_and_store_currency_data()
@@ -160,3 +164,4 @@ if __name__ == "__main__":
 
     # result = fetch_and_store_youtube_data()
     # print(result)
+    # scheduled_store()

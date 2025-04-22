@@ -1,6 +1,6 @@
 import yfinance as yf
 import app.test_config
-
+from datetime import datetime
 
 def calculate_moving_average(data, period=100):
     result = []
@@ -24,6 +24,7 @@ def fetch_index_info(symbol, day_num=200, ma_period=100):
     hist = ticker.history(period="12mo").tail(day_num)
 
     data = []
+    procecced_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     for date, row in hist.iterrows():
         data.append({
             "date": date.strftime("%Y-%m-%d"),
@@ -47,7 +48,7 @@ def fetch_index_info(symbol, day_num=200, ma_period=100):
         trimmed_data[i]["envelope3_upper"] = upper3[i]
         trimmed_data[i]["envelope3_lower"] = lower3[i]
 
-    return trimmed_data
+    return {'processed_time':procecced_time, 'data':trimmed_data,}
 
 
 # ✅ 테스트 실행
