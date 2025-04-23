@@ -47,7 +47,7 @@
     &quot;Python.URL찾기.executor&quot;: &quot;Run&quot;,
     &quot;Python.main..executor&quot;: &quot;Debug&quot;,
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.storage.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.storage.executor&quot;: &quot;Run&quot;,
     &quot;Python.test_config.executor&quot;: &quot;Debug&quot;,
     &quot;Python.웹사이트입력.executor&quot;: &quot;Debug&quot;,
     &quot;Python.지수정보가져오기 (1).executor&quot;: &quot;Run&quot;,
@@ -55,7 +55,7 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Hyeongeon/Hansoldeco_s3_comp/my-frontend&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Hyeongeon/Hansoldeco_s3_comp/News_scrap&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -259,6 +259,11 @@
       <workItem from="1745209211460" duration="8418000" />
       <workItem from="1745224889133" duration="5950000" />
       <workItem from="1745231401283" duration="54000" />
+      <workItem from="1745308428485" duration="6506000" />
+      <workItem from="1745319717309" duration="82000" />
+      <workItem from="1745319816649" duration="11000" />
+      <workItem from="1745320033421" duration="212000" />
+      <workItem from="1745367933329" duration="376000" />
     </task>
     <servers />
   </component>
@@ -275,27 +280,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/storage.py</url>
-          <line>160</line>
-          <option name="timeStamp" value="170" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>107</line>
-          <option name="timeStamp" value="177" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/storage.py</url>
-          <line>49</line>
-          <option name="timeStamp" value="179" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>67</line>
-          <option name="timeStamp" value="180" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/storage.py</url>
-          <line>106</line>
+          <line>110</line>
           <option name="timeStamp" value="181" />
         </line-breakpoint>
       </breakpoints>
@@ -310,7 +295,7 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/News_scrap$test_config.coverage" NAME="test_config Coverage Results" MODIFIED="1744952788213" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
-    <SUITE FILE_PATH="coverage/News_scrap$storage.coverage" NAME="storage Coverage Results" MODIFIED="1745228535493" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
+    <SUITE FILE_PATH="coverage/News_scrap$storage.coverage" NAME="storage Coverage Results" MODIFIED="1745320208861" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$main_.coverage" NAME="main. Coverage Results" MODIFIED="1743586694817" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$main.coverage" NAME="main Coverage Results" MODIFIED="1743665305295" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$100.coverage" NAME="100일지수정보가져오기 Coverage Results" MODIFIED="1744700279427" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
