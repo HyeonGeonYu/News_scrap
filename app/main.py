@@ -25,7 +25,8 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return
+    return {"message": "Hello, World!"}
+
 
 @app.get("/youtube")
 def youtube_data():
