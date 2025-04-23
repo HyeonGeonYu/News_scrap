@@ -23,9 +23,10 @@ app.add_middleware(
     allow_headers=["*"],  # 모든 헤더 허용
 )
 
-@app.head("/")
+@app.get("/")
 def root():
     return
+
 @app.get("/youtube")
 def youtube_data():
     result = {}
