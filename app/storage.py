@@ -44,6 +44,10 @@ def fetch_and_store_youtube_data():
                 # existing_data에서 processed_time 가져오기
             # 🔍 새 영상 서치
             video_data = get_latest_video_data(channel)
+            if not video_data:
+                print(f"❌ {country} — 영상 데이터를 찾을 수 없음, 스킵합니다.")
+                continue
+
             video_date_str = convert_to_kst(video_data['publishedAt']).strftime("%Y-%m-%d")
 
             # ✅ 오늘 영상인지 확인
