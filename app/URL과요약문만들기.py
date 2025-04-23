@@ -132,6 +132,8 @@ def get_latest_video_data(channel):
     channel_id = response.json().get("items", [{}])[0].get("id")
 
     if not channel_id:
+        print(response.status_code)
+        print(response.text)  # 전체 응답 확인
         print("❌ 채널 ID를 찾을 수 없습니다.")
         return None
 
