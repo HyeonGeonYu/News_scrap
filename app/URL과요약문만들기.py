@@ -66,15 +66,10 @@ def summarize_content(content):
 
 def find_similar_video_title_id(data, keyword, similarity_threshold=0.9,from_playlist=False):
     try:
-        if not from_playlist:
-            items = data["items"]  # "items"가 없으면 오류 발생
-        else:
-            items = data["items"]
-        # 나머지 로직
+        items = data["items"]
     except KeyError as e:
         print(f"❌ 'items' 필드가 없습니다: {str(e)}")
         return None
-
     keyword = keyword.lower()
     k_len = len(keyword)
 
@@ -108,7 +103,7 @@ def find_similar_video_title_id(data, keyword, similarity_threshold=0.9,from_pla
                         duration = isodate.parse_duration(video_data["items"][0]["contentDetails"]['duration'])
                         # 10분 ~ 2시간 사이만 허용
                         if 300 <= duration.total_seconds() <= 7200:
-                            return video_data
+                            return video_id
                     except (KeyError, IndexError, ValueError) as e:
                         print(f"duration 정보 없는 id {video_id}: {e}")
                         continue
@@ -132,8 +127,6 @@ def get_latest_video_data(channel):
     channel_id = response.json().get("items", [{}])[0].get("id")
 
     if not channel_id:
-        print(response.status_code)
-        print(response.text)  # 전체 응답 확인
         print("❌ 채널 ID를 찾을 수 없습니다.")
         return None
 
@@ -156,7 +149,7 @@ def get_latest_video_data(channel):
         }
 
         response = requests.get(search_url, params=params)
-        video_data_cid = find_similar_video_title_id(response.json(), keyword)
+        video_id_cid = find_similar_video_title_id(response.json(), keyword)
 
         # playlistid기준 viedo_id
         search_playlist_url = "https://www.googleapis.com/youtube/v3/playlistItems"
@@ -167,11 +160,18 @@ def get_latest_video_data(channel):
             "key": YOUTUBE_API_KEY
         }
         response = requests.get(search_playlist_url, params=params)
-        video_data_plst = find_similar_video_title_id(response.json(), keyword, from_playlist=True)
+        video_id_plst = find_similar_video_title_id(response.json(), keyword, from_playlist=True)
 
-        for video_data_ele in [video_data_cid, video_data_plst]:
-            if video_data_ele: # 찾은 video id가 있는경우
-                data = video_data_ele
+        for video_id in [video_id_cid, video_id_plst]:
+            if video_id: # 찾은 video id가 있는경우
+                videos_check_url = "https://www.googleapis.com/youtube/v3/videos"
+                params = {
+                    "part": "snippet",
+                    "id": video_id,
+                    "key": YOUTUBE_API_KEY
+                }
+                response = requests.get(videos_check_url, params=params)
+                data = response.json()
                 if not data.get("items"):
                     continue
                 # 비교 시간, 실제로는 한국시간이 아닌 utc 시간기준임
