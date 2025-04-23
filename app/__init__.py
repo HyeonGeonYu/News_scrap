@@ -16,9 +16,13 @@ def create_app():
         allow_headers=["*"],
     )
 
+    @app.get("/")
+    def root():
+        return {"message": "Hello, World!"}
+
     @app.head("/")
     def head_root():
-        return {}  # 또는 Response(status_code=200)
+        return {}  # UptimeRobot이 여기서 200 OK 받음
 
     @app.get("/youtube")
     def youtube_data():
