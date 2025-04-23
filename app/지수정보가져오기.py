@@ -54,10 +54,10 @@ def fetch_index_info(symbol, day_num=200, ma_period=100):
 # ✅ 테스트 실행
 
 if __name__ == "__main__":
-
-    results = {}
-    for index_name, symbol  in app.test_config.INDEX_SYMBOLS.items():
-        new_data = fetch_index_info(symbol, day_num=200)  # 심볼 전달
-        results[app.test_config.INDEX_SYMBOLS[index_name]] = new_data
-    print(results)  # 지수정보
+    1
+    #results = {}
+    #for index_name, symbol  in app.test_config.INDEX_SYMBOLS.items():
+    #    new_data = fetch_index_info(symbol, day_num=200)  # 심볼 전달
+    #    results[app.test_config.INDEX_SYMBOLS[index_name]] = new_data
+    #print(results)  # 지수정보
 
