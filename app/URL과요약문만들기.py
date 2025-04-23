@@ -20,27 +20,76 @@ from app.test_config import channels
 from datetime import datetime
 
 
-def clean_vtt_text(raw_text):
-    # 1. <00:00:01.439> 같은 타임코드 제거
-    text = re.sub(r'<\d{2}:\d{2}:\d{2}\.\d+>', '', raw_text)
+def get_channel_id(channel_handle):
+    url = "https://www.googleapis.com/youtube/v3/channels"
+    params = {
+        "part": "id",
+        "forHandle": channel_handle,
+        "key": YOUTUBE_API_KEY
+    }
+    response = requests.get(url, params=params)
+    return response.json().get("items", [{}])[0].get("id")
 
-    # 2. <c> 태그 제거
-    text = re.sub(r'</?c>', '', text)
 
-    # 3. Kind, Language 같은 메타라인 제거
-    text = re.sub(r'Kind:.*\n|Language:.*\n', '', text)
+def get_video_details(video_id):
+    url = "https://www.googleapis.com/youtube/v3/videos"
+    params = {
+        "part": "snippet,contentDetails",
+        "id": video_id,
+        "key": YOUTUBE_API_KEY
+    }
+    response = requests.get(url, params=params)
+    items = response.json().get("items")
+    return items[0] if items else None
 
-    # 4. 중복 라인 제거 (바로 연달아 같은 줄이 있는 경우 하나만 유지)
-    lines = text.splitlines()
-    cleaned_lines = []
-    prev_line = ""
-    for line in lines:
-        line = line.strip()
-        if line and line != prev_line:
-            cleaned_lines.append(line)
-            prev_line = line
+def get_transcript_text(video_id, language_code="en"):
+    try:
+        transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
+        transcript = next((t for t in transcripts if t.is_generated and t.language_code == language_code), None) \
+                     or next((t for t in transcripts if t.is_generated), None)
+        if transcript:
+            entries = transcript.fetch()
+            return "\n".join(entry.text for entry in entries)
+    except Exception as e:
+        print("❌ 자막 가져오기 실패:", e)
+    return None
 
-    return '\n'.join(cleaned_lines).strip()
+def find_best_video(data, keyword, from_playlist=False):
+    for item in data.get("items", []):
+        vid_id = item["id"]["videoId"] if isinstance(item["id"], dict) else item["snippet"]["resourceId"]["videoId"]
+        title = item["snippet"]["title"].lower()
+        if any(SequenceMatcher(None, keyword.lower(), title[i:i+len(keyword)]).ratio() > 0.9
+               for i in range(len(title) - len(keyword) + 1)):
+            video = get_video_details(vid_id)
+            if not video:
+                continue
+            try:
+                duration = isodate.parse_duration(video["contentDetails"]["duration"])
+                if 300 <= duration.total_seconds() <= 7200:
+                    return vid_id
+            except Exception as e:
+                print(f"⏱ duration 파싱 실패: {e}")
+    return None
+
+
+def search_video_ids(channel_id, playlist_id, keyword):
+    results = []
+    for url, id_param in [
+        ("https://www.googleapis.com/youtube/v3/search", {"channelId": channel_id, "q": keyword}),
+        ("https://www.googleapis.com/youtube/v3/playlistItems", {"playlistId": playlist_id}),
+    ]:
+        params = {
+            "part": "snippet",
+            "maxResults": 5,
+            "key": YOUTUBE_API_KEY,
+            **id_param
+        }
+        resp = requests.get(url, params=params)
+        vid_id = find_best_video(resp.json(), keyword, from_playlist="playlistId" in id_param)
+        if vid_id:
+            results.append(vid_id)
+    return results
+
 def summarize_content(content):
     if content is None:
         return None
@@ -110,118 +159,49 @@ def find_similar_video_title_id(data, keyword, similarity_threshold=0.9,from_pla
     return None  # 찾는 영상이 없을 경우
 
 def get_latest_video_data(channel):
-    channel_handle = channel["channel_handle"]
-    keywords = channel["keyword"] if isinstance(channel["keyword"], list) else [channel["keyword"]]
-    playlist_ids = channel["playlist_id"] if isinstance(channel["playlist_id"], list) else [channel["playlist_id"]]
-    save_fields = channel["save_fields"]
-
     # 채널id기준 viedo_id
-    channel_url = "https://www.googleapis.com/youtube/v3/channels"
-    params = {
-        "part": "id",
-        "forHandle": channel_handle,
-        "key": YOUTUBE_API_KEY
-    }
-
-    response = requests.get(channel_url, params=params)
-    channel_id = response.json().get("items", [{}])[0].get("id")
-
+    channel_id = get_channel_id(channel["channel_handle"])
+    if not channel_id:
+        print("❌ 채널 ID를 찾을 수 없습니다.")
+        return None
     if not channel_id:
         print("❌ 채널 ID를 찾을 수 없습니다.")
         return None
 
-    latest_video_data = None
-    latest_time = None
+    keywords = channel["keyword"] if isinstance(channel["keyword"], list) else [channel["keyword"]]
+    playlist_ids = channel["playlist_id"] if isinstance(channel["playlist_id"], list) else [channel["playlist_id"]]
+
+    latest = {"time": None, "data": None}
 
     for i, keyword in enumerate(keywords):
         # 해당 키워드에 맞는 플레이리스트 ID 사용
         playlist_id = playlist_ids[i] if i < len(playlist_ids) else playlist_ids[-1]
-
-
-        search_url = "https://www.googleapis.com/youtube/v3/search"
-        params = {
-            "part": "snippet",
-            "channelId": channel_id,  # 변환된 채널 ID 사용
-            "q": keyword,
-            "order": "date",  # 최신순 정렬
-            "maxResults": 5,
-            "key": YOUTUBE_API_KEY,
-        }
-
-        response = requests.get(search_url, params=params)
-        video_id_cid = find_similar_video_title_id(response.json(), keyword)
-
-        # playlistid기준 viedo_id
-        search_playlist_url = "https://www.googleapis.com/youtube/v3/playlistItems"
-        params = {
-            "part": "snippet",
-            "playlistId": playlist_id,
-            "maxResults": 5,
-            "key": YOUTUBE_API_KEY
-        }
-        response = requests.get(search_playlist_url, params=params)
-        video_id_plst = find_similar_video_title_id(response.json(), keyword, from_playlist=True)
-
-        for video_id in [video_id_cid, video_id_plst]:
-            if video_id: # 찾은 video id가 있는경우
-                videos_check_url = "https://www.googleapis.com/youtube/v3/videos"
-                params = {
-                    "part": "snippet",
-                    "id": video_id,
-                    "key": YOUTUBE_API_KEY
-                }
-                response = requests.get(videos_check_url, params=params)
-                data = response.json()
-                if not data.get("items"):
-                    continue
-                # 비교 시간, 실제로는 한국시간이 아닌 utc 시간기준임
-                published_time = datetime.strptime(data["items"][0]["snippet"]["publishedAt"], "%Y-%m-%dT%H:%M:%SZ")
-                if latest_time is None or published_time > latest_time:
-                    latest_time = published_time
-                    latest_video_data = data
-
-    if latest_video_data:
-        video_info = latest_video_data["items"][0]
-        video_id = video_info['id']
-        video_title = video_info["snippet"]["title"]
-        video_pbtime = video_info["snippet"]["publishedAt"]
-        if "description" == save_fields:
-            summary_content = video_info["snippet"]["description"]
-        elif "subtitle" == save_fields:
-
-            country_to_lang = {
-                "Korea": "ko",
-                "USA": "en",
-                "Japan": "ja",
-                "China": "zh"
-            }
-
-            language_code = country_to_lang.get(channel['country'], "en")  # 기본은 영어
-            try:
-                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-                generated_transcript = next(
-                    (t for t in transcript_list if t.is_generated and t.language_code == language_code),
-                    next((t for t in transcript_list if t.is_generated), None)
-                )
-                if generated_transcript:
-                    transcript = generated_transcript.fetch()
-                    full_text = "\n".join([entry.text for entry in transcript])
-                    summary_content = full_text
-                else:
-                    summary_content = None
-            except Exception as e:
-                print("❌ 자막 가져오기 실패:", e)
-                summary_content = None
-
-
-    return {
-            "url": f"https://www.youtube.com/watch?v={video_id}",
-            "title": video_title,
-            "publishedAt": video_pbtime,
-            "summary_target": save_fields,
-            "summary_content": summary_content
-        }
-    return None  # 영상이 없을 경우
+        for video_id in search_video_ids(channel_id, playlist_id, keyword):
+            video = get_video_details(video_id)
+            if not video:
+                continue
+            pb_time = datetime.strptime(video["snippet"]["publishedAt"], "%Y-%m-%dT%H:%M:%SZ")
+            if not latest["time"] or pb_time > latest["time"]:
+                latest.update({
+                    "time": pb_time,
+                    "video_id": video_id,
+                    "data": {
+                        "url": f"https://www.youtube.com/watch?v={video_id}",
+                        "title": video["snippet"]["title"],
+                        "publishedAt": video["snippet"]["publishedAt"],
+                        "summary_target": channel["save_fields"],
+                        "summary_content": video["snippet"]["description"] if channel[
+                                                                                  "save_fields"] == "description" else None
+                    }
+                })
+    # 최신 영상 확정 후 자막 가져오기 (필요한 경우에만)
+    if latest["data"] and channel["save_fields"] == "subtitle":
+        lang_code = {
+            "Korea": "ko", "USA": "en", "Japan": "ja", "China": "zh"
+        }.get(channel["country"], "en")
+        transcript = get_transcript_text(latest["video_id"], lang_code)
+        latest["data"]["summary_content"] = transcript
+    return latest["data"]
 
 
 # ✅ 테스트 실행
