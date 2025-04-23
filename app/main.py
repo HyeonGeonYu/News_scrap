@@ -23,6 +23,9 @@ app.add_middleware(
     allow_headers=["*"],  # 모든 헤더 허용
 )
 
+@app.head("/")
+def root():
+    return
 @app.get("/youtube")
 def youtube_data():
     result = {}
@@ -38,6 +41,7 @@ def youtube_data():
         except Exception as e:
             result[country] = {"error": f"{country} 처리 중 오류: {str(e)}"}
     return result
+
 
 @app.get("/chartdata/{category}")
 def get_chart_data(category: str):
