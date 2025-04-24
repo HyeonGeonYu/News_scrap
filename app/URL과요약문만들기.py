@@ -56,7 +56,12 @@ def get_transcript_text(video_id, language_code="en"):
 
 def find_best_video(data, keyword, from_playlist=False):
     for item in data.get("items", []):
-        vid_id = item["id"]["videoId"] if isinstance(item["id"], dict) else item["snippet"]["resourceId"]["videoId"]
+
+        vid_id = None
+        if isinstance(item.get("id"), dict):
+            vid_id = item["id"].get("videoId")
+        elif isinstance(item.get("snippet", {}).get("resourceId"), dict):
+            vid_id = item["snippet"]["resourceId"].get("videoId")
         title = item["snippet"]["title"].lower()
         if any(SequenceMatcher(None, keyword.lower(), title[i:i+len(keyword)]).ratio() > 0.9
                for i in range(len(title) - len(keyword) + 1)):
