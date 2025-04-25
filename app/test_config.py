@@ -63,8 +63,6 @@ COMMODITY_SYMBOLS = {
 }
 
 ALL_SYMBOLS = {
-
-
 }
 
 ALL_SYMBOLS = {
