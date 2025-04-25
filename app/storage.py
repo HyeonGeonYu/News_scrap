@@ -113,7 +113,6 @@ def fetch_and_store_chart_data():
 
     return "\n".join(results)
 
-
 def fetch_and_store_holiday_data():
     results = []
     try:
@@ -128,7 +127,6 @@ def fetch_and_store_holiday_data():
 
     except Exception as e:
         results.append(f"❌ 전체 공휴일 데이터 처리 중 오류 발생: {str(e)}")
-
 
 def scheduled_store():
     now = datetime.now(timezone('Asia/Seoul'))

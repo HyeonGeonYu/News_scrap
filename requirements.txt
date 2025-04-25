@@ -12,3 +12,4 @@ yfinance
 quandl
 yt-dlp
 pykrx
+plotly

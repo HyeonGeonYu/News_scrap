@@ -36,6 +36,7 @@ INDEX_SYMBOLS = {
     "dax": "^GDAXI",               # 독일 DAX
 }
 KR_STOCK_SYMBOLS = {
+        "삼성전자": "005930",
         "한화오션": "042660",
         "현대해상": "001450"
     }
