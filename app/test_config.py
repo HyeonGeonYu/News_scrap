@@ -35,7 +35,10 @@ INDEX_SYMBOLS = {
     "eurostoxx50": "^STOXX50E",    # 유로스톡스 50
     "dax": "^GDAXI",               # 독일 DAX
 }
-
+KR_STOCK_SYMBOLS = {
+        "한화오션": "042660",
+        "현대해상": "001450"
+    }
 CURRENCY_SYMBOLS = {
     "usd_krw": "USDKRW=X",     # 한국 원
     "usd_dxy": "DX-Y.NYB",     # 달러 인덱스 (참고용)
@@ -59,8 +62,16 @@ COMMODITY_SYMBOLS = {
 }
 
 ALL_SYMBOLS = {
-    "index": INDEX_SYMBOLS,
-    "commodity": COMMODITY_SYMBOLS,
-    "currency": CURRENCY_SYMBOLS,  # 기존 선언한 통화
+
+
 }
 
+ALL_SYMBOLS = {
+    "krx": {"kr_stock":KR_STOCK_SYMBOLS,
+    },
+    "yfinance": {
+        "index": INDEX_SYMBOLS,
+        "commodity": COMMODITY_SYMBOLS,
+        "currency": CURRENCY_SYMBOLS,  # 기존 선언한 통화
+    }
+}
