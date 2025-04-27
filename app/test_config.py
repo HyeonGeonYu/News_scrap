@@ -8,7 +8,7 @@ channels = [
             "country": "USA",
             "channel_handle": "@NBCNews",
             "playlist_id": "PL0tDb4jw6kPymVj5xNNha5PezudD5Qw9L",
-            "keyword": "Nightly News Full Episode",
+            "keyword": "Nightly News Full",
             "save_fields": "subtitle"
         },
         {
@@ -26,6 +26,18 @@ channels = [
             "save_fields": "description"
         }
     ]
+
+channels = [
+    {
+        "country": "Japan",
+        "channel_handle": "@tbsnewsdig",
+        "keyword": "【LIVE】朝のニュース（Japan News Digest Live）",
+        "playlist_id": "PLhoNlZaJqDLaPgn1NqC9FxMPnlkemRpyr",
+        "save_fields": "subtitle"
+    },
+    ]
+
+
 
 INDEX_SYMBOLS = {
     "nasdaq100": "^NDX",           # 나스닥 100
