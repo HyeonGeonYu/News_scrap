@@ -1,9 +1,9 @@
 import time
 import json
-from app.URL과요약문만들기 import get_latest_video_data, summarize_content
+from app.URL과요약문만들기 import get_latest_video_data, summarize_content, get_transcript_text
 from app.지수정보가져오기 import fetch_stock_info
 from app.휴장일구하기 import get_market_holidays
-
+from urllib.parse import urlparse, parse_qs
 from pytz import timezone, utc
 from app.redis_client import redis_client
 from datetime import datetime
@@ -34,8 +34,47 @@ def fetch_and_store_youtube_data():
                 if processed_time:
                     processed_date = convert_to_kst(processed_time).strftime("%Y-%m-%d")
                     if processed_date == today_date:
-                        print(f"⏭️ {country} — 오늘 데이터 이미 존재")
-                        continue  # 오늘 데이터는 이미 있음, 넘어감
+                        if existing_data.get('summary_content') is None:
+                            # 요약 다시 생성
+                            print(f"✏️ {country} — summary_content 없음, 요약을 생성합니다.")
+                            url = existing_data.get('url')
+                            parsed_url = urlparse(url)
+                            query_params = parse_qs(parsed_url.query)
+                            video_id_list = query_params.get('v')
+                            if not video_id_list:
+                                print(f"❌ {country} — video_id 추출 실패, 스킵합니다.")
+                                continue
+                            video_id = video_id_list[0]
+
+                            # 언어코드 매핑
+                            lang_code = {
+                                "Korea": "ko",
+                                "USA": "en",
+                                "Japan": "ja",
+                                "China": "zh",
+                            }.get(channel["country"], "en")
+                            transcript = get_transcript_text(video_id, lang_code)
+                            if not transcript:
+                                print(f"❌ {country} — transcript 가져오기 실패, 스킵합니다.")
+                                continue
+                            summary_result = summarize_content(transcript)
+
+                            # 기존 데이터에 추가
+                            existing_data['summary_content'] = transcript
+                            existing_data['summary_result'] = summary_result
+                            # 저장 시간 업데이트 (UTC)
+                            existing_data['processed_time'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+                            # Redis 덮어쓰기
+                            redis_client.hset("youtube_data", country, json.dumps(existing_data))
+                            print(f"🔔 {country} — 요약 추가 저장 완료")
+                            updated = True
+
+                        else:
+                            print(f"⏭️ {country} — 오늘 데이터 이미 존재 (summary도 있음)")
+                        continue
+                        # processed_time이 오늘 날짜가 아니면 새로 조회
+                    else:
+                        print(f"⚠️ {country} — processed_time이 오늘이 아니어서 새로 조회합니다.")
                 else:
                     print(f"⚠️ {country} — processed_time 없음, 새로 조회합니다.")
             else:
@@ -162,8 +201,8 @@ def scheduled_store():
 
 if __name__ == "__main__":
     1
-    result = fetch_and_store_chart_data()
-    print(result)
+    # result = fetch_and_store_chart_data()
+    # print(result)
     # result = fetch_and_store_holiday_data()
     # print(result)
     # result = fetch_and_store_index_data()
@@ -171,6 +210,6 @@ if __name__ == "__main__":
     # result = fetch_and_store_currency_data()
     # print(result)
 
-    # result = fetch_and_store_youtube_data()
-    # print(result)
+    result = fetch_and_store_youtube_data()
+    print(result)
     # scheduled_store()
