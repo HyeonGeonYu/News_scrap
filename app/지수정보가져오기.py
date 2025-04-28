@@ -57,12 +57,12 @@ def fetch_stock_info(symbol, source="krx", day_num=200, ma_period=100):
                 "short_ratio": round(short_ratio, 2)
             })
 
-    if len(data) >= 4:
-        # Get the value of the 4th last short_ratio
-        last_valid_short_ratio = data[-4]["short_ratio"]
-        # Update the last 3 entries to have the same short_ratio as the 4th last one
-        for i in range(1, 4):
-            data[-i]["short_ratio"] = last_valid_short_ratio
+        if len(data) >= 4:
+            # Get the value of the 4th last short_ratio
+            last_valid_short_ratio = data[-4]["short_ratio"]
+            # Update the last 3 entries to have the same short_ratio as the 4th last one
+            for i in range(1, 4):
+                data[-i]["short_ratio"] = last_valid_short_ratio
     elif source == "yfinance":
         ticker = yf.Ticker(symbol)
         hist = ticker.history(period="12mo").tail(day_num)
