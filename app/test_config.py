@@ -42,6 +42,11 @@ KR_STOCK_SYMBOLS = {
         "한화오션": "042660",
         "현대해상": "001450"
     }
+
+US_STOCK_SYMBOLS = {
+    "tesla": "TSLA",  # 테슬라
+}
+
 CURRENCY_SYMBOLS = {
     "usd_krw": "USDKRW=X",     # 한국 원
     "usd_dxy": "DX-Y.NYB",     # 달러 인덱스 (참고용)
@@ -68,8 +73,9 @@ ALL_SYMBOLS = {
     "krx": {"kr_stock":KR_STOCK_SYMBOLS,
     },
     "yfinance": {
-        "index": INDEX_SYMBOLS,
-        "commodity": COMMODITY_SYMBOLS,
-        "currency": CURRENCY_SYMBOLS,  # 기존 선언한 통화
+        "index" : INDEX_SYMBOLS,
+        "commodity" : COMMODITY_SYMBOLS,
+        "currency" : CURRENCY_SYMBOLS,
+        "us_stock" : US_STOCK_SYMBOLS,
     }
 }
