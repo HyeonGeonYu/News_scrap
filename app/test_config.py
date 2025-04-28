@@ -65,9 +65,6 @@ COMMODITY_SYMBOLS = {
 }
 
 ALL_SYMBOLS = {
-}
-
-ALL_SYMBOLS = {
     "krx": {"kr_stock":KR_STOCK_SYMBOLS,
     },
     "yfinance": {
