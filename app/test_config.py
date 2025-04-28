@@ -27,16 +27,6 @@ channels = [
         }
     ]
 
-channels = [
-    {
-        "country": "Japan",
-        "channel_handle": "@tbsnewsdig",
-        "keyword": "【LIVE】朝のニュース（Japan News Digest Live）",
-        "playlist_id": "PLhoNlZaJqDLaPgn1NqC9FxMPnlkemRpyr",
-        "save_fields": "subtitle"
-    },
-    ]
-
 
 
 INDEX_SYMBOLS = {
