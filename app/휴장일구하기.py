@@ -2,7 +2,10 @@ import requests
 import datetime
 import os
 import json
-
+from pathlib import Path
+from dotenv import load_dotenv
+env_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=env_path)
 CALENDARIFIC_API_KEY = os.getenv("CALENDARIFIC_API_KEY")
 
 COUNTRIES = {
