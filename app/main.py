@@ -7,6 +7,6 @@ from app.storage import scheduled_store
 app = create_app()
 
 scheduler = BackgroundScheduler()
-trigger = CronTrigger(minute='0,30')
+trigger = CronTrigger(minute='0')
 scheduler.add_job(scheduled_store, trigger=trigger)
 scheduler.start()

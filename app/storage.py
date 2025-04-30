@@ -8,6 +8,7 @@ from pytz import timezone, utc
 from app.redis_client import redis_client
 from datetime import datetime
 from app.test_config import ALL_SYMBOLS, channels
+import random
 # url, 요약 저장 코드
 def convert_to_kst(published_utc_str):
     seoul_tz = timezone("Asia/Seoul")
@@ -128,6 +129,7 @@ def fetch_and_store_chart_data():
                     results.append(f"✅ [{source.upper()} - {category.upper()} - {name.upper()}] {len(new_data['data'])}개 데이터 수집 완료")
                 except Exception as e:
                     results.append(f"❌ [{source.upper()} - {category.upper()} - {name.upper()}] 수집 중 오류 발생: {str(e)}")
+                time.sleep(random.uniform(0.5, 2.0))
 
             try:
                 # Redis에 저장할 데이터 형식
@@ -210,6 +212,6 @@ if __name__ == "__main__":
     # result = fetch_and_store_currency_data()
     # print(result)
 
-    #result = fetch_and_store_youtube_data()
-    #print(result)
+    result = fetch_and_store_youtube_data()
+    print(result)
     # scheduled_store()
