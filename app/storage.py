@@ -138,9 +138,13 @@ def fetch_and_store_chart_data():
 
                 # 기존 데이터를 Redis에서 조회하여 비교
                 existing_data_raw = redis_client.hget(redis_key, category)
-                existing_data_str = existing_data_raw.decode() if existing_data_raw else None
+                existing_data = json.loads(existing_data_raw.decode()) if existing_data_raw else {}
 
-                # 기존 데이터와 비교 후 차이가 있을 경우에만 저장
+                updated_data = existing_data.copy()
+                updated_data.update(source_data)  # 성공적으로 수집된 name만 덮어씀
+
+                existing_data_str = json.dumps(existing_data, sort_keys=True)
+                new_data_str = json.dumps(updated_data, sort_keys=True)
                 if existing_data_str == new_data_str:
                     results.append(f"⏭️ {category.upper()} 데이터 변경 없음, 저장 생략")
                 else:
