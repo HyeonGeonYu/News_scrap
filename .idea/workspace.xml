@@ -39,37 +39,37 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.100일지수정보가져오기.executor": "Debug",
-    "Python.URL과요약문만들기 (1).executor": "Debug",
-    "Python.URL있나 확인 (1).executor": "Run",
-    "Python.URL찾기.executor": "Run",
-    "Python.main..executor": "Debug",
-    "Python.main.executor": "Run",
-    "Python.quota체크.executor": "Run",
-    "Python.storage.executor": "Run",
-    "Python.test_config.executor": "Debug",
-    "Python.test_main.executor": "Debug",
-    "Python.국내지수정보.executor": "Run",
-    "Python.웹사이트입력.executor": "Debug",
-    "Python.지수정보가져오기 (1).executor": "Run",
-    "Python.지수정보가져오기.executor": "Debug",
-    "Python.한국지수가져오기.executor": "Debug",
-    "Python.휴장일구하기.executor": "Debug",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "ignore.virus.scanning.warn.message": "true",
-    "last_opened_file_path": "C:/Users/Hyeongeon/Hansoldeco_s3_comp/News_scrap",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "preferences.keymap",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.100일지수정보가져오기.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.URL과요약문만들기 (1).executor&quot;: &quot;Debug&quot;,
+    &quot;Python.URL있나 확인 (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.URL찾기.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main..executor&quot;: &quot;Debug&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.quota체크.executor&quot;: &quot;Run&quot;,
+    &quot;Python.storage.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test_config.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.test_main.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.국내지수정보.executor&quot;: &quot;Run&quot;,
+    &quot;Python.웹사이트입력.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.지수정보가져오기 (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.지수정보가져오기.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.한국지수가져오기.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.휴장일구하기.executor&quot;: &quot;Debug&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Hyeongeon/Hansoldeco_s3_comp/News_scrap&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.keymap&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Hyeongeon\Hansoldeco_s3_comp\News_scrap\app" />
@@ -349,7 +349,9 @@
       <workItem from="1745833712156" duration="1711000" />
       <workItem from="1745835490039" duration="135000" />
       <workItem from="1745836557090" duration="28000" />
-      <workItem from="1745904194628" duration="4667000" />
+      <workItem from="1745904194628" duration="7469000" />
+      <workItem from="1746110559806" duration="1122000" />
+      <workItem from="1746162526424" duration="3080000" />
     </task>
     <servers />
   </component>
@@ -361,7 +363,7 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/storage.py</url>
-          <line>160</line>
+          <line>164</line>
           <option name="timeStamp" value="181" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -397,7 +399,7 @@
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/News_scrap$quota.coverage" NAME="quota체크 Coverage Results" MODIFIED="1745735400148" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$test_main.coverage" NAME="test_main Coverage Results" MODIFIED="1745385164022" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
-    <SUITE FILE_PATH="coverage/News_scrap$storage.coverage" NAME="storage Coverage Results" MODIFIED="1745995720307" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
+    <SUITE FILE_PATH="coverage/News_scrap$storage.coverage" NAME="storage Coverage Results" MODIFIED="1746162840504" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$main_.coverage" NAME="main. Coverage Results" MODIFIED="1743586694817" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$main.coverage" NAME="main Coverage Results" MODIFIED="1743665305295" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$URL__1_.coverage" NAME="URL과요약문만들기 (1) Coverage Results" MODIFIED="1745904428849" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />

@@ -175,13 +175,16 @@ def fetch_and_store_holiday_data():
 
 def scheduled_store():
     now = datetime.now(timezone('Asia/Seoul'))
-    print("📈 chart data 저장 시작...")
-    stored_result = fetch_and_store_chart_data()
-    print(stored_result)
+
+
     if 11 <= now.hour < 15:  # 11시 ~ 14시 59분
         print("⏰ Scheduled store running at", now.strftime("%Y-%m-%d %H:%M"))
         youtube_result = fetch_and_store_youtube_data()
         print(youtube_result)
+
+        print("📈 chart data 저장 시작...")
+        stored_result = fetch_and_store_chart_data()
+        print(stored_result)
 
     # ✅ 월요일일 때만 실행
     if now.weekday() == 0:  # 0 = 월요일
@@ -209,11 +212,8 @@ if __name__ == "__main__":
     1
     result = fetch_and_store_chart_data()
     print(result)
+
     # result = fetch_and_store_holiday_data()
-    # print(result)
-    # result = fetch_and_store_index_data()
-    # print(result)
-    # result = fetch_and_store_currency_data()
     # print(result)
 
     result = fetch_and_store_youtube_data()
