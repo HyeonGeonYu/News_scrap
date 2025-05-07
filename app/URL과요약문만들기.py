@@ -11,8 +11,6 @@ load_dotenv(dotenv_path=env_path)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # .env에서 불러오기
 OPENAI_API_KEY = os.getenv("OPENAI_API_KE")  # .env에서 불러오기
 import isodate
-import subprocess
-import re
 from openai import OpenAI
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 from app.test_config import channels

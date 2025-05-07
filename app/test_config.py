@@ -28,14 +28,13 @@ channels = [
     ]
 
 
-
 INDEX_SYMBOLS = {
-    "nasdaq100": "^NDX",           # 나스닥 100
-    "nikkei225": "^N225",          # 닛케이 225
-    "hangseng": "^HSI",            # 항셍
+    "nasdaq100": "NDX",           # 나스닥 100
+    "nikkei225": "JP#NI225",          # 닛케이 225
+    "hangseng": "HK#HS",            # 항셍
     "kospi200": "^KS200",          # 코스피 200
-    "eurostoxx50": "^STOXX50E",    # 유로스톡스 50
-    "dax": "^GDAXI",               # 독일 DAX
+    "eurostoxx50": "SX5E",    # 유로스톡스 50
+    "dax": "GR#DAX",               # 독일 DAX
 }
 KR_STOCK_SYMBOLS = {
         "삼성전자": "005930",
@@ -48,23 +47,23 @@ US_STOCK_SYMBOLS = {
 }
 
 CURRENCY_SYMBOLS = {
-    "usd_krw": "USDKRW=X",     # 한국 원
+    "usd_krw": "FX@KRW",     # 한국 원
     "usd_dxy": "DX-Y.NYB",     # 달러 인덱스 (참고용)
-    "usd_jpy": "USDJPY=X",     # 일본 엔
-    "usd_cny": "USDCNY=X",     # 중국 위안
-    "usd_eur": "USDEUR=X",     # 유로
-    "usd_gbp": "USDGBP=X",     # 영국 파운드
-    "usd_inr": "USDINR=X",     # 인도 루피
-    "usd_thb": "USDTHB=X",     # 태국 바트
-    "usd_vnd": "USDVND=X",     # 베트남 동
-    "usd_sgd": "USDSGD=X",     # 싱가포르 달러
+    "usd_jpy": "FX@JPY",     # 일본 엔
+    "usd_cny": "FX@CNY",     # 중국 위안
+    "usd_eur": "FX@EUR",     # 유로
+    "usd_gbp": "FX@GBP",     # 영국 파운드
+    "usd_inr": "FX@IDR",     # 인도 루피
+    "usd_thb": "FX@THB",     # 태국 바트
+    "usd_vnd": "FX@VND",     # 베트남 동
+    "usd_sgd": "FX@SGD",     # 싱가포르 달러
 }
 
 COMMODITY_SYMBOLS = {
-    "gold": "GC=F",                # 금
-    "crude_oil": "CL=F",           # 서부 텍사스산 원유 (WTI)
+    "gold": "M0101",                # 금
+    "crude_oil": "WTIF",           # 서부 텍사스산 원유 (WTI)
     "natural_gas": "NG=F",         # 천연가스
-    "corn": "ZC=F",                # 옥수수
+    "corn": "M0301",                # 옥수수
     "wheat": "ZW=F",               # 밀
     "live_cattle": "LE=F",         # 생우
 }

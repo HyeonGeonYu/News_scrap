@@ -117,9 +117,9 @@ def fetch_and_store_chart_data():
 
     # ALL_SYMBOLS에 정의된 각각의 카테고리별로 처리
     for source, symbol_dict in ALL_SYMBOLS.items():
-        source_data = {}
-
         for category, symbols in symbol_dict.items():
+            source_data = {}
+
             for name, symbol in symbols.items():
                 try:
                     # fetch_stock_info 호출 시, symbol과 source 전달
@@ -134,9 +134,7 @@ def fetch_and_store_chart_data():
             try:
                 # Redis에 저장할 데이터 형식
                 redis_key = "chart_data"
-                new_data_str = json.dumps(source_data, sort_keys=True)
-
-                # 기존 데이터를 Redis에서 조회하여 비교
+                 # 기존 데이터를 Redis에서 조회하여 비교
                 existing_data_raw = redis_client.hget(redis_key, category)
                 existing_data = json.loads(existing_data_raw.decode()) if existing_data_raw else {}
 
@@ -182,9 +180,9 @@ def scheduled_store():
         youtube_result = fetch_and_store_youtube_data()
         print(youtube_result)
 
-        print("📈 chart data 저장 시작...")
-        stored_result = fetch_and_store_chart_data()
-        print(stored_result)
+        # print("📈 chart data 저장 시작...")
+        # stored_result = fetch_and_store_chart_data()
+        # print(stored_result)
 
     # ✅ 월요일일 때만 실행
     if now.weekday() == 0:  # 0 = 월요일
@@ -210,6 +208,8 @@ def scheduled_store():
 
 if __name__ == "__main__":
     1
+    # scheduled_store()
+
     result = fetch_and_store_chart_data()
     print(result)
 
