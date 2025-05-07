@@ -13,3 +13,4 @@ quandl
 yt-dlp
 pykrx
 plotly
+openpyxl
