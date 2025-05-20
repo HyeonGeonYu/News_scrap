@@ -28,53 +28,71 @@ channels = [
     ]
 
 
-INDEX_SYMBOLS = {
+dmi_KR_STOCK_SYMBOLS = {
+         "kospi200": "2001",          # 코스피 200
+    }
+
+os_INDEX_SYMBOLS = {
     "nasdaq100": "NDX",           # 나스닥 100
     "nikkei225": "JP#NI225",          # 닛케이 225
     "hangseng": "HK#HS",            # 항셍
-    "kospi200": "^KS200",          # 코스피 200
     "eurostoxx50": "SX5E",    # 유로스톡스 50
     "dax": "GR#DAX",               # 독일 DAX
 }
-KR_STOCK_SYMBOLS = {
+
+os_treasury_SYMBOLS = {
+    "us-t10" : "Y0202",
+    "jp-t10" : "Y0207",
+    "kr-t3" : "Y0101"
+}
+
+
+dmc_KR_STOCK_SYMBOLS = {
         "삼성전자": "005930",
         "한화오션": "042660",
         "현대해상": "001450"
     }
 
-US_STOCK_SYMBOLS = {
+os_US_STOCK_SYMBOLS = {
     "tesla": "TSLA",  # 테슬라
 }
 
-CURRENCY_SYMBOLS = {
+yf_CURRENCY_SYMBOLS = {
+    "dxy": "DX-Y.NYB",     # 한국 원
+}
+
+os_CURRENCY_SYMBOLS = {
     "usd_krw": "FX@KRW",     # 한국 원
-    "usd_dxy": "DX-Y.NYB",     # 달러 인덱스 (참고용)
     "usd_jpy": "FX@JPY",     # 일본 엔
     "usd_cny": "FX@CNY",     # 중국 위안
-    "usd_eur": "FX@EUR",     # 유로
-    "usd_gbp": "FX@GBP",     # 영국 파운드
+    "usd_eur": "FX@EUR",     # 유로 유로->달러임
+    "usd_gbp": "FX@GBP",     # 영국 파운드 파운드->달러
+    "usd_cad": "FX@CAD",     # 캐나다 달러
+    "usd_sek": "FX@SEK",     # 스웨덴 크로나
+    "usd_chf": "FX@CHF",     # 스위스 프랑
     "usd_inr": "FX@IDR",     # 인도 루피
     "usd_thb": "FX@THB",     # 태국 바트
     "usd_vnd": "FX@VND",     # 베트남 동
     "usd_sgd": "FX@SGD",     # 싱가포르 달러
 }
 
-COMMODITY_SYMBOLS = {
-    "gold": "M0101",                # 금
-    "crude_oil": "WTIF",           # 서부 텍사스산 원유 (WTI)
-    "natural_gas": "NG=F",         # 천연가스
-    "corn": "M0301",                # 옥수수
-    "wheat": "ZW=F",               # 밀
-    "live_cattle": "LE=F",         # 생우
+os_COMMODITY_SYMBOLS = {
+    "gold": "NYGOLD",                # 금C
+    "crude_oil": "WTIF",           # WTI 원유C
+    "corn": "CHICORN",  # CBOT 옥수수C
+    "coffe": "COFFE",  # NYBOT 커피 C
 }
 
 ALL_SYMBOLS = {
-    "krx": {"kr_stock":KR_STOCK_SYMBOLS,
+    "domestic": {"kr_stock":dmc_KR_STOCK_SYMBOLS,
     },
-    "yfinance": {
-        "index" : INDEX_SYMBOLS,
-        "commodity" : COMMODITY_SYMBOLS,
-        "currency" : CURRENCY_SYMBOLS,
-        "us_stock" : US_STOCK_SYMBOLS,
+    "overseas": {
+        "index" : os_INDEX_SYMBOLS,
+        "commodity" : os_COMMODITY_SYMBOLS,
+        "currency" : os_CURRENCY_SYMBOLS,
+        "us_stock" : os_US_STOCK_SYMBOLS,
+        "treasury" : os_treasury_SYMBOLS
+    },
+    "dmr": {"index":dmi_KR_STOCK_SYMBOLS,
     }
 }

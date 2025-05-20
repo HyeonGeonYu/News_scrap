@@ -1,13 +1,16 @@
+import time
+import numpy as np
 import yfinance as yf
-import app.test_config
 from pykrx import stock
 import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv
+from app.test_config import ALL_SYMBOLS, channels
 import requests
 import os
 import json
 from datetime import datetime, timedelta
+from app.redis_client import redis_client
 # 환경변수 불러오기
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -80,12 +83,25 @@ def get_access_token(app_key, app_secret):
     save_token_to_cache(access_token, expires_at_str)
     return access_token
 
+def process_row_data(row, field_map, volume_key="acml_vol", extra_fields=None):
+    """공통적인 row 처리 함수"""
+    return {
+        "date": datetime.strptime(row['stck_bsop_date'], "%Y%m%d").strftime("%Y-%m-%d"),
+        "open": round(float(row[field_map["open"]]), 6),
+        "high": round(float(row[field_map["high"]]), 6),
+        "low": round(float(row[field_map["low"]]), 6),
+        "close": round(float(row[field_map["close"]]), 6),
+        "volume": safe_int(row.get(volume_key, 0)),
+        **(extra_fields or {})
+    }
+
 token = get_access_token(KIS_APP_KEY, KIS_APP_SECRET)
 app_key = KIS_APP_KEY
 app_secret = KIS_APP_SECRET
 
-def fetch_stock_or_index_prices(symbol, source="domestic", num_days=200):
+def fetch_stock_or_index_prices(symbol,category="index", source="domestic", num_days=200):
     # 오늘 날짜와 200일 전 날짜 계산
+    time.sleep(0.2)
     today = datetime.today()
     start_date = (today - timedelta(days=365))  # 1년 전
     end_date = today# 오늘
@@ -143,11 +159,64 @@ def fetch_stock_or_index_prices(symbol, source="domestic", num_days=200):
         # 공매도 상태 데이터를 가져오기
         shorting_data_df = stock.get_shorting_status_by_date(start_date, end_date,
                                                              symbol)
+    elif source == "dmr":
+        # 국내 주식/지수의 경우
+        url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice"
+        tr_id = "FHKUP03500100"
+
+        current_end = end_date
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+            "appkey": app_key,
+            "appsecret": app_secret,
+            "tr_id": tr_id,
+            "custtype": "P"
+        }
+        all_data = []
+        market_code = 'U'
+        while True:
+            current_start = current_end - timedelta(days=120)  # 넉넉히 120일 간격 (휴장일 고려)
+            if current_start < start_date:
+                current_start = start_date
+
+            params = {
+                "FID_COND_MRKT_DIV_CODE": market_code,
+                "FID_INPUT_ISCD": symbol,
+                "FID_INPUT_DATE_1": current_start.strftime("%Y%m%d"),
+                "FID_INPUT_DATE_2": current_end.strftime("%Y%m%d"),
+                "FID_PERIOD_DIV_CODE": "D"
+            }
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            # JSON 데이터 반환
+            data = response.json()
+            if 'output2' not in data or not data['output2']:
+                break  # 더 이상 데이터가 없으면 종료
+
+            all_data.extend(data['output2'])
+
+            # 가장 오래된 날짜에서 하루 전으로 다음 루프 설정
+            oldest = min(data['output2'], key=lambda x: x['stck_bsop_date'])
+            current_end = datetime.strptime(oldest['stck_bsop_date'], "%Y%m%d") - timedelta(days=1)
+
+            if current_end < start_date:
+                break
+        data = {'output2': all_data}
 
     elif source == "overseas":
         url = "https://openapi.koreainvestment.com:9443/uapi/overseas-price/v1/quotations/inquire-daily-chartprice"
         tr_id = "FHKST03030100"
-        market_code = "N"
+        if category=="index":
+            market_code = "N"
+        elif category=="currency":
+            market_code = "X"
+        elif category=="treasury":
+            market_code = "I"
+        elif category == "commodity":
+            market_code = "N"
+        else:
+            market_code = "N"
         current_end = datetime.today()
         headers = {
             "Content-Type": "application/json",
@@ -186,6 +255,59 @@ def fetch_stock_or_index_prices(symbol, source="domestic", num_days=200):
             if current_end < start_date:
                 break
         data = {'output2': all_data}
+    elif source == "osFutures":
+        url = "https://openapi.koreainvestment.com:9443/uapi/overseas-futureoption/v1/quotations/daily-ccnl"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+            "appkey": app_key,
+            "appsecret": app_secret,
+            "tr_id": "HHDFC55020100",
+            "custtype": "P"  # 개인고객
+        }
+        all_data = []
+        qry_tp = "Q"  # 최초 조회
+        index_key = ""
+        exchange = "CME"
+        symbol = 'MGCM25'
+        while True:
+            params = {
+                "SRS_CD": symbol,  # 종목코드 예: "6AM24"
+                "EXCH_CD": exchange,  # 거래소 예: "CME"
+                "START_DATE_TIME": start_date.strftime("%Y%m%d"),
+                "CLOSE_DATE_TIME": end_date.strftime("%Y%m%d"),
+                "QRY_TP": qry_tp,
+                "QRY_CNT": "40",
+                "QRY_GAP": "",
+                "INDEX_KEY": index_key
+            }
+
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            output2 = data.get("output2", [])
+            if not output2:
+                break
+
+            all_data.extend(output2)
+
+            # 다음 조회를 위해 트랜잭션 헤더에서 확인 필요 (tr_cont, index_key)
+            tr_cont = data.get("output1", {}).get("tr_cont", "")
+            if tr_cont != "M":  # M이면 다음 데이터 있음
+                break
+
+            # output1 또는 별도 키에서 다음 조회용 INDEX_KEY 가져와야 하는데 문서에 명확히 없음
+            # 일반적으로 output1 내부에 다음 조회용 키가 있음 (가이드 문서 참고)
+            index_key = data.get("output1", {}).get("index_key", "")
+            if not index_key:
+                break
+
+            qry_tp = "P"  # 다음 조회
+
+        return all_data
+
+        1
     else:
         raise ValueError("Invalid source type. Use 'domestic' or 'overseas'.")
 
@@ -207,24 +329,43 @@ def fetch_stock_or_index_prices(symbol, source="domestic", num_days=200):
                 last_short_balance_amount = match_val[0]
             market_cap = market_caps[i]
             short_ratio = (last_short_balance_amount / market_cap) * 100 if market_cap > 0 else 0
-            result.append({
-                "date": datetime.strptime(row['stck_bsop_date'], "%Y%m%d").strftime("%Y-%m-%d"),
-                "open": round(float(row['stck_oprc']), 2),
-                "high": round(float(row['stck_hgpr']), 2),
-                "low": round(float(row['stck_lwpr']), 2),
-                "close": round(float(row['stck_clpr']), 2),
-                "volume": int(row.get('acml_vol', 0)),  # 실제 데이터에 해당 필드가 없다면 기본 0으로 설정됨
-                "short_ratio": round(short_ratio, 2)
-            })
-        elif source =="overseas":
-            result.append({
-                "date": datetime.strptime(row['stck_bsop_date'], "%Y%m%d").strftime("%Y-%m-%d"),
-                "open": round(float(row['ovrs_nmix_oprc']), 2),
-                "high": round(float(row['ovrs_nmix_hgpr']), 2),
-                "low": round(float(row['ovrs_nmix_lwpr']), 2),
-                "close": round(float(row['ovrs_nmix_prpr']), 2),
-                "volume": int(row.get('acml_vol', 0)),  # 실제 데이터에 해당 필드가 없다면 기본 0으로 설정됨
+            result.append(process_row_data(row, {
+                "open": "stck_oprc",
+                "high": "stck_hgpr",
+                "low": "stck_lwpr",
+                "close": "stck_clpr",
+            }, extra_fields={"short_ratio": round(short_ratio, 2)}))
 
+        elif source == "dmr":
+            result.append(process_row_data(row, {
+                "open": "bstp_nmix_oprc",
+                "high": "bstp_nmix_hgpr",
+                "low": "bstp_nmix_lwpr",
+                "close": "bstp_nmix_prpr",
+            }))
+
+        elif source =="overseas":
+            open_ = round(float(row['ovrs_nmix_oprc']), 6)
+            high = round(float(row['ovrs_nmix_hgpr']), 6)
+            low = round(float(row['ovrs_nmix_lwpr']), 6)
+            close = round(float(row['ovrs_nmix_prpr']), 6)
+
+            # 환율 반전 처리
+            if symbol in {"FX@EUR", "FX@GBP"} :
+                open_, high, low, close = (
+                    round(1 / open_, 6),
+                    round(1 / low, 6),  # low ↔ high
+                    round(1 / high, 6),
+                    round(1 / close, 6),
+                )
+
+            result.append({
+                "date": datetime.strptime(row['stck_bsop_date'], "%Y%m%d").strftime("%Y-%m-%d"),
+                "open": open_,
+                "high": high,
+                "low": low,
+                "close": close,
+                "volume": safe_int(row.get("acml_vol", 0))
             })
     if source == "domestic":
         if len(result) >= 4:
@@ -234,18 +375,19 @@ def fetch_stock_or_index_prices(symbol, source="domestic", num_days=200):
             for i in range(1, 4):
                 result[-i]["short_ratio"] = last_valid_short_ratio
     return result
-
-def fetch_stock_info(symbol, source="krx", day_num=200, ma_period=100):
+def safe_int(val):
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return 0
+def fetch_stock_info(symbol, category,source="krx", day_num=200, ma_period=100):
     processed_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    try:
 
-    if source == "krx":
-        source = "domestic"  # "domestic" 또는 "overseas"로 선택
-        data = fetch_stock_or_index_prices(symbol, source=source)
-    elif source == "yfinance":
-        source = "overseas"  # "domestic" 또는 "overseas"로 선택
-        data = fetch_stock_or_index_prices(symbol, source=source)
-    else:
-        raise ValueError("Invalid data source. Use 'krx' or 'yfinance'.")
+        data = fetch_stock_or_index_prices(symbol, category=category, source=source)
+    except ValueError as e:
+        print(f"Error: {e}")
+        data = None  # 또는 적절한 기본값
 
     moving_avg = calculate_moving_average(data, period=ma_period)
     upper10, lower10 = calculate_envelope(moving_avg, 0.10)
@@ -260,44 +402,96 @@ def fetch_stock_info(symbol, source="krx", day_num=200, ma_period=100):
         trimmed_data[i]["envelope3_lower"] = lower3[i]
     return {'processed_time': processed_time, 'data': trimmed_data}
 
-# 한화오션 (042660) / 현대해상 (001450)
+# 각 지표들의 평균 계산 (있는 경우에만)
 
-# 공매도 비율 계산 함수
-def calculate_short_ratio(symbol, day_num=200):
-    end_date = datetime.today()
-    start_date = end_date - timedelta(days=day_num * 2)  # 주말 제외 대비 여유있게
+def calculate_dxy_from_currency_data(ma_period=100) -> list:
+    processed_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    required = ["usd_eur", "usd_jpy", "usd_gbp", "usd_cad", "usd_sek", "usd_chf"]
+    os_CURRENCY_SYMBOLS = {
+        "usd_jpy": "FX@JPY",  # 일본 엔
+        "usd_eur": "FX@EUR",  # 유로 유로->달러임
+        "usd_gbp": "FX@GBP",  # 영국 파운드 파운드->달러
+        "usd_cad": "FX@CAD",  # 캐나다 달러
+        "usd_sek": "FX@SEK",  # 스웨덴 크로나
+        "usd_chf": "FX@CHF",  # 스위스 프랑
+    }
 
-    # 공매도 상태 데이터 가져오기 (날짜 범위와 종목 코드 지정)
-    df = stock.get_shorting_status_by_date(start_date.strftime("%Y%m%d"), end_date.strftime("%Y%m%d"), symbol)
+    weights = {
+        'usd_eur': 0.576,
+        'usd_jpy': 0.136,
+        'usd_gbp': 0.119,
+        'usd_cad': 0.091,
+        'usd_sek': 0.042,
+        'usd_chf': 0.036
+    }
+    # DXY 구성 통화의 환율 데이터 불러오기
+    currency_data = {}
+    for ticker in required:
+        symbol = os_CURRENCY_SYMBOLS[ticker]
+        raw = fetch_stock_or_index_prices(symbol, category='currency', source='overseas')
+        df = pd.DataFrame(raw)
+        df['date'] = pd.to_datetime(df['date'])
+        df = df.sort_values('date')
+        df = df[['date', 'close']]
+        currency_data[symbol] = df.set_index('date')['close']
+    # 날짜 기준 병합
+    merged_df = pd.concat(currency_data.values(), axis=1)
+    merged_df.columns = required
+    merged_df = merged_df.dropna()
+    # DXY 계산
 
-    # 필요한 데이터만 선택하여 리스트로 변환
-    data = []
-    for _, row in df.iterrows():
-        data.append({
-            "date": row.name.strftime("%Y-%m-%d"),  # 날짜 (index가 날짜로 되어 있음)
-            "short_sale_volume": int(row["거래량"]),
-            "short_sale_balance": int(row["잔고수량"]),
-            "short_sale_value": int(row["거래대금"]),
-            "short_balance_amount": int(row["잔고금액"]),
-        })
+    dxy = 50.14348112 * (
+            merged_df['usd_eur'] ** weights['usd_eur'] *
+            merged_df['usd_jpy'] ** weights['usd_jpy'] *
+            merged_df['usd_gbp'] ** weights['usd_gbp'] *
+            merged_df['usd_cad'] ** weights['usd_cad'] *
+            merged_df['usd_sek'] ** weights['usd_sek'] *
+            merged_df['usd_chf'] ** weights['usd_chf']
+    )
 
-    shorting_data = pd.DataFrame(data)
+    dxy_df = pd.DataFrame({
+        'close': dxy
+    })
+    dxy_df['ma100'] = dxy_df['close'].rolling(window=100).mean()
+    # 100일 이동 평균이 이미 있다면
+    dxy_df['envelope10_upper'] = dxy_df['ma100'] * 1.10
+    dxy_df['envelope10_lower'] = dxy_df['ma100'] * 0.90
+    dxy_df['envelope3_upper'] = dxy_df['ma100'] * 1.03
+    dxy_df['envelope3_lower'] = dxy_df['ma100'] * 0.97
+    recent_df = dxy_df.sort_index().tail(100)[[
+        'close', 'ma100', 'envelope10_upper', 'envelope10_lower', 'envelope3_upper', 'envelope3_lower'
+    ]].reset_index()
 
-    # 시가총액 계산
-   # market_cap = get_market_cap(symbol)
+    recent_df['date'] = recent_df['date'].dt.strftime('%Y-%m-%d')
 
-    # 공매도 비율 계산 (잔고금액 / 시가총액 * 100)
-    #shorting_data["short_ratio"] = (shorting_data["short_balance_amount"] / market_cap) * 100
+    # 열 순서 정리
+    recent_df = recent_df[
+        ['date', 'close', 'ma100', 'envelope10_upper', 'envelope10_lower', 'envelope3_upper', 'envelope3_lower']]
 
-    return shorting_data
+    # 리스트[dict] 형태로 변환
+    result = recent_df.to_dict(orient='records')
+
+    return {'processed_time': processed_time, 'data': result}
 
 
+
+# ✅ 테스트 실행
 if __name__ == "__main__":
-    results = {}
-    test_dict = app.test_config.ALL_SYMBOLS
-    source = 'yfinance'
-    category = 'index'
-    for index_name, symbol  in test_dict[source][category].items():
-        new_data = fetch_stock_info(symbol, source, day_num=200)  # 심볼 전달
-        results[test_dict[source][category][index_name]] = new_data
-    print(results)  # 지수정보
+
+    results = []
+    # calculate_dxy_from_currency_data()
+    # get_overseas_index_master_dataframe
+    for source, symbol_dict in ALL_SYMBOLS.items():
+        for category, symbols in symbol_dict.items():
+            source_data = {}
+            for name, symbol in symbols.items():
+                try:
+                    # fetch_stock_info 호출 시, symbol과 source 전달
+                    new_data = fetch_stock_info(symbol, category,source=source, day_num=200)
+                    source_data[name] = new_data
+
+
+                    results.append(f"✅ [{source.upper()} - {category.upper()} - {name.upper()}] {len(new_data['data'])}개 데이터 수집 완료")
+                except Exception as e:
+                    results.append(f"❌ [{source.upper()} - {category.upper()} - {name.upper()}] 수집 중 오류 발생: {str(e)}")
+    print(results)

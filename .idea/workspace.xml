@@ -45,15 +45,15 @@
     &quot;Python.URL과요약문만들기 (1).executor&quot;: &quot;Debug&quot;,
     &quot;Python.URL있나 확인 (1).executor&quot;: &quot;Run&quot;,
     &quot;Python.URL찾기.executor&quot;: &quot;Run&quot;,
-    &quot;Python.kis_kospi_code_mst.executor&quot;: &quot;Run&quot;,
+    &quot;Python.kis_kospi_code_mst.executor&quot;: &quot;Debug&quot;,
     &quot;Python.main..executor&quot;: &quot;Debug&quot;,
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
     &quot;Python.overseas_future_code.executor&quot;: &quot;Run&quot;,
     &quot;Python.overseas_index_code.executor&quot;: &quot;Run&quot;,
     &quot;Python.quota체크.executor&quot;: &quot;Run&quot;,
-    &quot;Python.storage.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.storage.executor&quot;: &quot;Run&quot;,
     &quot;Python.test.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.test_config.executor&quot;: &quot;Debug&quot;,
+    &quot;Python.test_config.executor&quot;: &quot;Run&quot;,
     &quot;Python.test_main.executor&quot;: &quot;Debug&quot;,
     &quot;Python.국내지수정보.executor&quot;: &quot;Run&quot;,
     &quot;Python.웹사이트입력.executor&quot;: &quot;Debug&quot;,
@@ -81,8 +81,9 @@
       <recent name="C:\Users\Hyeongeon\Hansoldeco_s3_comp\News_scrap" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
-      <recent name="C:\Users\Hyeongeon\Hansoldeco_s3_comp\News_scrap\jops" />
+      <recent name="C:\Users\Hyeongeon\Hansoldeco_s3_comp\News_scrap\app\jobs" />
       <recent name="C:\Users\Hyeongeon\Hansoldeco_s3_comp\News_scrap\app" />
+      <recent name="C:\Users\Hyeongeon\Hansoldeco_s3_comp\News_scrap\jops" />
     </key>
   </component>
   <component name="RunManager" selected="Python.storage">
@@ -224,7 +225,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="지수정보가져오기_test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="kis_kospi_code_mst" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="News_scrap" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -233,12 +234,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/app" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/app/jobs" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/app/지수정보가져오기_test.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/app/jobs/kis_kospi_code_mst.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -256,12 +257,12 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/jobs" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/app/jobs" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/jobs/overseas_future_code.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/app/jobs/overseas_future_code.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -316,7 +317,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="test_config" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="News_scrap" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -330,7 +331,7 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/app/test.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/app/test_config.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -342,10 +343,10 @@
     <recent_temporary>
       <list>
         <item itemvalue="Python.storage" />
+        <item itemvalue="Python.test_config" />
         <item itemvalue="Python.지수정보가져오기" />
-        <item itemvalue="Python.test" />
         <item itemvalue="Python.overseas_future_code" />
-        <item itemvalue="Python.지수정보가져오기_test" />
+        <item itemvalue="Python.kis_kospi_code_mst" />
       </list>
     </recent_temporary>
   </component>
@@ -432,7 +433,18 @@
       <workItem from="1746419710963" duration="789000" />
       <workItem from="1746451828773" duration="17137000" />
       <workItem from="1746593145497" duration="6322000" />
-      <workItem from="1746606924681" duration="1513000" />
+      <workItem from="1746606924681" duration="2953000" />
+      <workItem from="1746687545407" duration="2590000" />
+      <workItem from="1746768631673" duration="1661000" />
+      <workItem from="1746855595883" duration="5413000" />
+      <workItem from="1746947509385" duration="555000" />
+      <workItem from="1747027108951" duration="616000" />
+      <workItem from="1747122714056" duration="289000" />
+      <workItem from="1747204500779" duration="1192000" />
+      <workItem from="1747292832559" duration="25358000" />
+      <workItem from="1747454196617" duration="12388000" />
+      <workItem from="1747563393572" duration="9028000" />
+      <workItem from="1747733058173" duration="349000" />
     </task>
     <servers />
   </component>
@@ -442,11 +454,6 @@
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/storage.py</url>
-          <line>162</line>
-          <option name="timeStamp" value="181" />
-        </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
           <line>151</line>
@@ -488,34 +495,24 @@
           <option name="timeStamp" value="256" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/jobs/overseas_index_code.py</url>
-          <line>19</line>
-          <option name="timeStamp" value="261" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/jobs/overseas_index_code.py</url>
-          <line>56</line>
-          <option name="timeStamp" value="262" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/지수정보가져오기_test.py</url>
-          <line>144</line>
-          <option name="timeStamp" value="269" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/지수정보가져오기_test.py</url>
-          <line>67</line>
-          <option name="timeStamp" value="272" />
+          <url>file://$PROJECT_DIR$/app/storage.py</url>
+          <line>212</line>
+          <option name="timeStamp" value="257" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/지수정보가져오기.py</url>
-          <line>356</line>
-          <option name="timeStamp" value="292" />
+          <line>245</line>
+          <option name="timeStamp" value="265" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/지수정보가져오기.py</url>
-          <line>316</line>
-          <option name="timeStamp" value="302" />
+          <line>309</line>
+          <option name="timeStamp" value="266" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/app/지수정보가져오기.py</url>
+          <line>480</line>
+          <option name="timeStamp" value="267" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
@@ -531,19 +528,19 @@
     <SUITE FILE_PATH="coverage/News_scrap$quota.coverage" NAME="quota체크 Coverage Results" MODIFIED="1745735400148" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$test.coverage" NAME="test Coverage Results" MODIFIED="1746602373472" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$test_main.coverage" NAME="test_main Coverage Results" MODIFIED="1745385164022" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
-    <SUITE FILE_PATH="coverage/News_scrap$storage.coverage" NAME="storage Coverage Results" MODIFIED="1746608310242" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
+    <SUITE FILE_PATH="coverage/News_scrap$storage.coverage" NAME="storage Coverage Results" MODIFIED="1747733517167" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$main_.coverage" NAME="main. Coverage Results" MODIFIED="1743586694817" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$main.coverage" NAME="main Coverage Results" MODIFIED="1743665305295" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$URL__1_.coverage" NAME="URL과요약문만들기 (1) Coverage Results" MODIFIED="1746453174499" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$URL.coverage" NAME="URL찾기 Coverage Results" MODIFIED="1744089528675" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
-    <SUITE FILE_PATH="coverage/News_scrap$overseas_future_code.coverage" NAME="overseas_future_code Coverage Results" MODIFIED="1746525223118" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/jobs" />
+    <SUITE FILE_PATH="coverage/News_scrap$overseas_future_code.coverage" NAME="overseas_future_code Coverage Results" MODIFIED="1746942463941" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/jobs" />
     <SUITE FILE_PATH="coverage/News_scrap$_test.coverage" NAME="지수정보가져오기_test Coverage Results" MODIFIED="1746520337262" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
-    <SUITE FILE_PATH="coverage/News_scrap$test_config.coverage" NAME="test_config Coverage Results" MODIFIED="1744952788213" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
+    <SUITE FILE_PATH="coverage/News_scrap$test_config.coverage" NAME="test_config Coverage Results" MODIFIED="1747733511193" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$100.coverage" NAME="100일지수정보가져오기 Coverage Results" MODIFIED="1744700279427" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
-    <SUITE FILE_PATH="coverage/News_scrap$overseas_index_code.coverage" NAME="overseas_index_code Coverage Results" MODIFIED="1746517162142" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/jops" />
+    <SUITE FILE_PATH="coverage/News_scrap$overseas_index_code.coverage" NAME="overseas_index_code Coverage Results" MODIFIED="1746941224428" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$__1_.coverage" NAME="지수정보가져오기 (1) Coverage Results" MODIFIED="1744940825436" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
-    <SUITE FILE_PATH="coverage/News_scrap$.coverage" NAME="지수정보가져오기 Coverage Results" MODIFIED="1746608302343" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
+    <SUITE FILE_PATH="coverage/News_scrap$.coverage" NAME="지수정보가져오기 Coverage Results" MODIFIED="1747733488446" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$URL___1_.coverage" NAME="URL있나 확인 (1) Coverage Results" MODIFIED="1743663105715" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/News_scrap$kis_kospi_code_mst.coverage" NAME="kis_kospi_code_mst Coverage Results" MODIFIED="1746519424863" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/jobs" />
+    <SUITE FILE_PATH="coverage/News_scrap$kis_kospi_code_mst.coverage" NAME="kis_kospi_code_mst Coverage Results" MODIFIED="1746942355747" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/jobs" />
   </component>
 </project>
