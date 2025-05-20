@@ -1,14 +1,12 @@
-import time
 import json
 from app.URL과요약문만들기 import get_latest_video_data, summarize_content, get_transcript_text
-from app.지수정보가져오기 import fetch_stock_info
+from app.지수정보가져오기 import fetch_stock_info, calculate_dxy_from_currency_data
 from app.휴장일구하기 import get_market_holidays
 from urllib.parse import urlparse, parse_qs
 from pytz import timezone, utc
 from app.redis_client import redis_client
 from datetime import datetime
 from app.test_config import ALL_SYMBOLS, channels
-import random
 # url, 요약 저장 코드
 def convert_to_kst(published_utc_str):
     seoul_tz = timezone("Asia/Seoul")
@@ -112,6 +110,9 @@ def fetch_and_store_youtube_data():
     except Exception as e:
         return f"❌ 저장 중 오류 발생: {str(e)}"
 
+
+
+
 def fetch_and_store_chart_data():
     results = []
 
@@ -119,17 +120,20 @@ def fetch_and_store_chart_data():
     for source, symbol_dict in ALL_SYMBOLS.items():
         for category, symbols in symbol_dict.items():
             source_data = {}
-
+            if category =='currency':
+                new_data = calculate_dxy_from_currency_data()
+                source_data['dxy'] = new_data
+                results.append(
+                    f"✅ [{source.upper()} - {category.upper()} - {'dxy'.upper()}] {len(new_data['data'])}개 데이터 수집 완료")
             for name, symbol in symbols.items():
                 try:
                     # fetch_stock_info 호출 시, symbol과 source 전달
-                    new_data = fetch_stock_info(symbol, source=source, day_num=200)
+                    new_data = fetch_stock_info(symbol, category,source=source, day_num=200)
                     source_data[name] = new_data
 
                     results.append(f"✅ [{source.upper()} - {category.upper()} - {name.upper()}] {len(new_data['data'])}개 데이터 수집 완료")
                 except Exception as e:
                     results.append(f"❌ [{source.upper()} - {category.upper()} - {name.upper()}] 수집 중 오류 발생: {str(e)}")
-                time.sleep(random.uniform(0.5, 2.0))
 
             try:
                 # Redis에 저장할 데이터 형식
@@ -153,7 +157,6 @@ def fetch_and_store_chart_data():
 
             except Exception as e:
                 results.append(f"❌ 전체 {category.upper()} 데이터 저장 중 오류 발생: {str(e)}")
-
     return "\n".join(results)
 
 def fetch_and_store_holiday_data():
@@ -203,18 +206,15 @@ def scheduled_store():
             print(holiday_result)
 
         except Exception as e:
-            print(f"❌ Redis에서 timestamp 확인 중 오류 발생: {str(e)}")
+            print(f"❌ Redis에서  timestamp 확인 중 오류 발생: {str(e)}")
 
 
 if __name__ == "__main__":
-    1
-    # scheduled_store()
-
     result = fetch_and_store_chart_data()
     print(result)
 
-    # result = fetch_and_store_holiday_data()
-    # print(result)
+    result = fetch_and_store_holiday_data()
+    print(result)
 
     result = fetch_and_store_youtube_data()
     print(result)
