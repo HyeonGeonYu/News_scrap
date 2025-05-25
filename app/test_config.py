@@ -6,9 +6,9 @@ channels = [
          "save_fields": "subtitle"},
         {
             "country": "USA",
-            "channel_handle": "@NBCNews",
-            "playlist_id": "PL0tDb4jw6kPymVj5xNNha5PezudD5Qw9L",
-            "keyword": "Nightly News Full",
+            "channel_handle": "@PBSNewsHour",
+            "playlist_id": "PLgawtcOBBjr9w4YGiJrPD8f6MXTCIUfK9",
+            "keyword": "PBS News Hour full episode",
             "save_fields": "subtitle"
         },
         {
@@ -24,8 +24,30 @@ channels = [
             "playlist_id": "PL0eGJygpmOH5xQuy8fpaOvKrenoCsWrKh",
             "keyword": "CCTV「新闻联播」",
             "save_fields": "description"
-        }
+        },
+        {
+            "country": "Germany",
+            "channel_handle": "@tagesschau",
+            "playlist_id": "PLkKDSXRppVa7FFdxr-wQaNltbtvOkZvx_",
+            "keyword": " / ",
+            "save_fields": "description"
+        },
+        {
+            "country": "UK",
+            "channel_handle": "@BBCNews",
+            "playlist_id": "PLS3XGZxi7cBU_AtRadnVPJPRC6LHrexaF",
+            "keyword": "BBC Newscast",
+            "save_fields": "subtitle"
+        },
+        {
+            "country": "India",
+            "channel_handle": "@DDnews",
+            "playlist_id": "",
+            "keyword": "LIVE: News Night",
+            "save_fields": "subtitle"
+        },
     ]
+
 
 
 dmi_KR_STOCK_SYMBOLS = {
