@@ -39,43 +39,43 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.100일지수정보가져오기.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.URL과요약문만들기 (1).executor&quot;: &quot;Debug&quot;,
-    &quot;Python.URL과요약문만들기.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.URL있나 확인 (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.URL찾기.executor&quot;: &quot;Run&quot;,
-    &quot;Python.kis_kospi_code_mst.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.main..executor&quot;: &quot;Debug&quot;,
-    &quot;Python.main.executor&quot;: &quot;Run&quot;,
-    &quot;Python.overseas_future_code.executor&quot;: &quot;Run&quot;,
-    &quot;Python.overseas_index_code.executor&quot;: &quot;Run&quot;,
-    &quot;Python.quota체크.executor&quot;: &quot;Run&quot;,
-    &quot;Python.storage.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.test_config.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_main.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.국내지수정보.executor&quot;: &quot;Run&quot;,
-    &quot;Python.웹사이트입력.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.지수정보가져오기 (1).executor&quot;: &quot;Run&quot;,
-    &quot;Python.지수정보가져오기.executor&quot;: &quot;Run&quot;,
-    &quot;Python.지수정보가져오기_test.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.한국지수가져오기.executor&quot;: &quot;Debug&quot;,
-    &quot;Python.휴장일구하기.executor&quot;: &quot;Debug&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Hyeongeon/Hansoldeco_s3_comp/News_scrap/app&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.keymap&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.100일지수정보가져오기.executor": "Debug",
+    "Python.URL과요약문만들기 (1).executor": "Debug",
+    "Python.URL과요약문만들기.executor": "Debug",
+    "Python.URL있나 확인 (1).executor": "Run",
+    "Python.URL찾기.executor": "Run",
+    "Python.kis_kospi_code_mst.executor": "Debug",
+    "Python.main..executor": "Debug",
+    "Python.main.executor": "Run",
+    "Python.overseas_future_code.executor": "Run",
+    "Python.overseas_index_code.executor": "Run",
+    "Python.quota체크.executor": "Run",
+    "Python.storage.executor": "Run",
+    "Python.test.executor": "Debug",
+    "Python.test_config.executor": "Run",
+    "Python.test_main.executor": "Debug",
+    "Python.국내지수정보.executor": "Run",
+    "Python.웹사이트입력.executor": "Debug",
+    "Python.지수정보가져오기 (1).executor": "Run",
+    "Python.지수정보가져오기.executor": "Run",
+    "Python.지수정보가져오기_test.executor": "Debug",
+    "Python.한국지수가져오기.executor": "Debug",
+    "Python.휴장일구하기.executor": "Debug",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "C:/Users/Hyeongeon/Hansoldeco_s3_comp/News_scrap/app",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "preferences.keymap",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\Hyeongeon\Hansoldeco_s3_comp\News_scrap\app" />
@@ -344,8 +344,8 @@
     <recent_temporary>
       <list>
         <item itemvalue="Python.storage" />
-        <item itemvalue="Python.URL과요약문만들기" />
         <item itemvalue="Python.test_config" />
+        <item itemvalue="Python.URL과요약문만들기" />
         <item itemvalue="Python.지수정보가져오기" />
         <item itemvalue="Python.overseas_future_code" />
       </list>
@@ -447,7 +447,8 @@
       <workItem from="1747563393572" duration="9028000" />
       <workItem from="1747733058173" duration="2310000" />
       <workItem from="1747811305420" duration="898000" />
-      <workItem from="1747891172463" duration="3208000" />
+      <workItem from="1747891172463" duration="7233000" />
+      <workItem from="1748240690689" duration="1960000" />
     </task>
     <servers />
   </component>
@@ -463,34 +464,9 @@
           <option name="timeStamp" value="203" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>201</line>
-          <option name="timeStamp" value="247" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/휴장일구하기.py</url>
           <line>68</line>
           <option name="timeStamp" value="248" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>216</line>
-          <option name="timeStamp" value="252" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>180</line>
-          <option name="timeStamp" value="253" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>200</line>
-          <option name="timeStamp" value="254" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/storage.py</url>
-          <line>212</line>
-          <option name="timeStamp" value="257" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/지수정보가져오기.py</url>
@@ -501,26 +477,6 @@
           <url>file://$PROJECT_DIR$/app/지수정보가져오기.py</url>
           <line>493</line>
           <option name="timeStamp" value="268" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/storage.py</url>
-          <line>91</line>
-          <option name="timeStamp" value="270" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>182</line>
-          <option name="timeStamp" value="272" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>78</line>
-          <option name="timeStamp" value="273" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>55</line>
-          <option name="timeStamp" value="274" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
@@ -536,14 +492,14 @@
     <SUITE FILE_PATH="coverage/News_scrap$quota.coverage" NAME="quota체크 Coverage Results" MODIFIED="1745735400148" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$test.coverage" NAME="test Coverage Results" MODIFIED="1746602373472" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$test_main.coverage" NAME="test_main Coverage Results" MODIFIED="1745385164022" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
-    <SUITE FILE_PATH="coverage/News_scrap$storage.coverage" NAME="storage Coverage Results" MODIFIED="1748161963067" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
+    <SUITE FILE_PATH="coverage/News_scrap$storage.coverage" NAME="storage Coverage Results" MODIFIED="1748245044049" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$main_.coverage" NAME="main. Coverage Results" MODIFIED="1743586694817" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$main.coverage" NAME="main Coverage Results" MODIFIED="1743665305295" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/News_scrap$URL__1_.coverage" NAME="URL과요약문만들기 (1) Coverage Results" MODIFIED="1746453174499" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$overseas_future_code.coverage" NAME="overseas_future_code Coverage Results" MODIFIED="1746942463941" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app/jobs" />
     <SUITE FILE_PATH="coverage/News_scrap$URL.coverage" NAME="URL과요약문만들기 Coverage Results" MODIFIED="1747733843906" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$_test.coverage" NAME="지수정보가져오기_test Coverage Results" MODIFIED="1746520337262" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
-    <SUITE FILE_PATH="coverage/News_scrap$test_config.coverage" NAME="test_config Coverage Results" MODIFIED="1747733511193" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
+    <SUITE FILE_PATH="coverage/News_scrap$test_config.coverage" NAME="test_config Coverage Results" MODIFIED="1748245040384" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$100.coverage" NAME="100일지수정보가져오기 Coverage Results" MODIFIED="1744700279427" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$overseas_index_code.coverage" NAME="overseas_index_code Coverage Results" MODIFIED="1746941224428" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
     <SUITE FILE_PATH="coverage/News_scrap$__1_.coverage" NAME="지수정보가져오기 (1) Coverage Results" MODIFIED="1744940825436" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/app" />
