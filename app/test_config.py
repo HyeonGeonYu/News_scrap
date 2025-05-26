@@ -8,7 +8,7 @@ channels = [
             "country": "USA",
             "channel_handle": "@PBSNewsHour",
             "playlist_id": "PLgawtcOBBjr9w4YGiJrPD8f6MXTCIUfK9",
-            "keyword": "PBS News Hour full episode",
+            "keyword": ["PBS News Hour full episode", "PBS News Weekend full episode"],
             "save_fields": "subtitle"
         },
         {
@@ -48,6 +48,15 @@ channels = [
         },
     ]
 
+channels = [
+    {
+        "country": "USA",
+        "channel_handle": "@PBSNewsHour",
+        "playlist_id": "PLgawtcOBBjr9w4YGiJrPD8f6MXTCIUfK9",
+        "keyword": ["PBS News Hour full episode", "PBS News Weekend full episode"],
+        "save_fields": "subtitle"
+    },
+    ]
 
 
 dmi_KR_STOCK_SYMBOLS = {
@@ -56,10 +65,12 @@ dmi_KR_STOCK_SYMBOLS = {
 
 os_INDEX_SYMBOLS = {
     "nasdaq100": "NDX",           # 나스닥 100
-    "nikkei225": "JP#NI225",          # 닛케이 225
+    "ShanghaiA": "CH#SHA",           # 상해 A
     "hangseng": "HK#HS",            # 항셍
+    "nikkei225": "JP#NI225",          # 닛케이 225
+    "BSE30":"IN#BOMBAY", # 인도 센섹스30
     "eurostoxx50": "SX5E",    # 유로스톡스 50
-    "dax": "GR#DAX",               # 독일 DAX
+    "dax": "GR#DAX",               # 독일 DAX 30
 }
 
 os_treasury_SYMBOLS = {
@@ -67,7 +78,6 @@ os_treasury_SYMBOLS = {
     "jp-t10" : "Y0207",
     "kr-t3" : "Y0101"
 }
-
 
 dmc_KR_STOCK_SYMBOLS = {
         "삼성전자": "005930",
@@ -102,7 +112,7 @@ os_COMMODITY_SYMBOLS = {
     "gold": "NYGOLD",                # 금C
     "crude_oil": "WTIF",           # WTI 원유C
     "corn": "CHICORN",  # CBOT 옥수수C
-    "coffe": "COFFE",  # NYBOT 커피 C
+    "coffee": "COFFE",  # NYBOT 커피 C
 }
 
 ALL_SYMBOLS = {
