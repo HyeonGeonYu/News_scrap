@@ -48,16 +48,6 @@ channels = [
         },
     ]
 
-channels = [
-    {
-        "country": "USA",
-        "channel_handle": "@PBSNewsHour",
-        "playlist_id": "PLgawtcOBBjr9w4YGiJrPD8f6MXTCIUfK9",
-        "keyword": ["PBS News Hour full episode", "PBS News Weekend full episode"],
-        "save_fields": "subtitle"
-    },
-    ]
-
 
 dmi_KR_STOCK_SYMBOLS = {
          "kospi200": "2001",          # 코스피 200
