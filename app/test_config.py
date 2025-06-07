@@ -72,7 +72,7 @@ os_treasury_SYMBOLS = {
 dmc_KR_STOCK_SYMBOLS = {
         "삼성전자": "005930",
         "한화오션": "042660",
-        "현대해상": "001450"
+        "카카오": "035720",
     }
 
 os_US_STOCK_SYMBOLS = {
@@ -87,6 +87,7 @@ os_CURRENCY_SYMBOLS = {
     "usd_krw": "FX@KRW",     # 한국 원
     "usd_jpy": "FX@JPY",     # 일본 엔
     "usd_cny": "FX@CNY",     # 중국 위안
+    "usd_hkd": "FX@HKD",  # 중국 위안
     "usd_eur": "FX@EUR",     # 유로 유로->달러임
     "usd_gbp": "FX@GBP",     # 영국 파운드 파운드->달러
     "usd_cad": "FX@CAD",     # 캐나다 달러

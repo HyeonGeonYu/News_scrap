@@ -1,16 +1,13 @@
 import time
-import numpy as np
-import yfinance as yf
 from pykrx import stock
 import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv
-from app.test_config import ALL_SYMBOLS, channels
+from app.test_config import ALL_SYMBOLS
 import requests
 import os
 import json
 from datetime import datetime, timedelta
-from app.redis_client import redis_client
 # 환경변수 불러오기
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
