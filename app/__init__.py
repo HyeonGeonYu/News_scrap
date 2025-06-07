@@ -1,10 +1,11 @@
-# app/__init__.py 또는 app/app_factory.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.redis_client import redis_client
-from app.storage import scheduled_store
-from app.test_config import channels
+from . import storage
+
 import json
+from pytz import timezone, utc
+from datetime import datetime
 def create_app():
     app = FastAPI()
 
@@ -22,7 +23,7 @@ def create_app():
 
     @app.head("/")
     def head_root():
-        return {}  # UptimeRobot이 여기서 200 OK 받음
+        return {}
 
     @app.get("/youtube")
     def youtube_data():
@@ -42,11 +43,6 @@ def create_app():
 
     @app.get("/chartdata/{category}")
     def get_chart_data(category: str):
-        """
-        통합 차트 데이터 API
-        :param category: 'index', 'currency', 'commodity'
-        :return: 해당 category의 모든 항목 데이터 (ex: 전체 kospi, nasdaq 등)
-        """
         try:
             redis_key = "chart_data"  # HSET으로 저장된 hash key
             result = redis_client.hget(redis_key, category)
@@ -83,5 +79,32 @@ def create_app():
         except Exception as e:
             result["error"] = f"공휴일 데이터를 가져오는 중 오류가 발생했습니다: {str(e)}"
             return result
+
+    @app.get("/test-save")
+    def test_save_endpoint():
+        now = datetime.now(timezone('Asia/Seoul'))
+        print("📈 chart data 저장 시작...")
+        stored_result = storage.fetch_and_store_chart_data()
+        print(stored_result)
+
+        print("⏰ Scheduled store running at", now.strftime("%Y-%m-%d %H:%M"))
+        youtube_result = storage.fetch_and_store_youtube_data()
+        print(youtube_result)
+        try:
+            timestamp_str = redis_client.hget("market_holidays", "all_holidays_timestamp")
+            if timestamp_str:
+                timestamp = datetime.strptime(timestamp_str.decode(), "%Y-%m-%dT%H:%M:%SZ")
+                timestamp_kst = timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('Asia/Seoul'))
+
+                if timestamp_kst.date() == now.date():
+                    print("⏭️ 오늘 이미 휴일 데이터가 저장됨. 생략합니다.")
+                    return
+
+            # 저장 안 되어 있거나 날짜가 오늘이 아니면 실행
+            holiday_result = storage.fetch_and_store_holiday_data()
+            print(holiday_result)
+
+        except Exception as e:
+            print(f"❌ Redis에서  timestamp 확인 중 오류 발생: {str(e)}")
 
     return app
