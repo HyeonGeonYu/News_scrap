@@ -457,7 +457,7 @@
       <workItem from="1748489260534" duration="10413000" />
       <workItem from="1749270051096" duration="10547000" />
       <workItem from="1749360401366" duration="6488000" />
-      <workItem from="1749444341408" duration="6036000" />
+      <workItem from="1749444341408" duration="6422000" />
     </task>
     <servers />
   </component>
@@ -494,7 +494,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/임시코드.py</url>
-          <line>14</line>
+          <line>42</line>
           <option name="timeStamp" value="284" />
         </line-breakpoint>
       </breakpoints>
