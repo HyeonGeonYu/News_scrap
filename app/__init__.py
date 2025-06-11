@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.redis_client import redis_client
 from . import storage
+from . import 임시코드
 
 import json
 from pytz import timezone, utc
@@ -106,5 +107,15 @@ def create_app():
 
         except Exception as e:
             print(f"❌ Redis에서  timestamp 확인 중 오류 발생: {str(e)}")
+
+    @app.get("/test-code")
+    def test_code():
+        result = {}
+        video_url = "https://www.youtube.com/watch?v=WxnFW-yn3YM"
+        transcript = 임시코드.get_youtube_transcript_text(video_url)
+        print("\n=== 최종 자막 ===")
+        print(transcript)
+        result["transcript"] = transcript
+        return result
 
     return app
