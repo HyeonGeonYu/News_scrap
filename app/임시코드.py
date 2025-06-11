@@ -21,9 +21,13 @@ def get_youtube_transcript_text(video_url):
         except:
             print("⚠️ 더보기 버튼 클릭 실패(이미 열려있을 수도 있음)")
 
-        # 스크립트 버튼 클릭
-        page.click("button:has(span:text('스크립트 표시'))")
-        print("✅ 스크립트 버튼 클릭 성공")
+        try:
+            page.click("button:has(span:text('스크립트 표시'))")
+            print("✅ 스크립트 버튼 클릭 성공")
+        except:
+            print("⚠️ 스크립트 버튼 클릭 실패(스크립트 버튼이 없을 수 있음)")
+            browser.close()
+            return ""  # 버튼이 없으면 빈 문자열 반환
 
         # 자막 텍스트 추출
         page.wait_for_selector("yt-formatted-string.segment-text")
@@ -36,7 +40,7 @@ def get_youtube_transcript_text(video_url):
         return full_transcript
 
 if __name__ == "__main__":
-    video_url = "https://www.youtube.com/watch?v=WxnFW-yn3YM"
+    video_url = "https://www.youtube.com/watch?v=AS1dpJe_epA"
     transcript = get_youtube_transcript_text(video_url)
     print("\n=== 최종 자막 ===")
     print(transcript)

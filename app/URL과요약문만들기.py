@@ -96,8 +96,8 @@ def search_video_ids(channel_id, playlist_id, keyword):
 def summarize_content(content):
     if content is None:
         return None
-    if len(content) > 30000:
-        return "❌ 요약 실패: 글자 수(30000) 초과"
+    if len(content) > 100000:
+        return "❌ 요약 실패: 글자 수(100000) 초과"
     if not content.strip(): #공백만있는경우
         return None
 
