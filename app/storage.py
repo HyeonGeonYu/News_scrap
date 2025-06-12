@@ -34,6 +34,7 @@ def fetch_and_store_youtube_data():
                     processed_date = convert_to_kst(processed_time).strftime("%Y-%m-%d")
                     if processed_date == today_date:
                         if existing_data.get('summary_content') is None:
+
                             # 요약 다시 생성
                             print(f"✏️ {country} — summary_content 없음, 요약을 생성합니다.")
                             url = existing_data.get('url')
@@ -44,32 +45,29 @@ def fetch_and_store_youtube_data():
                                 print(f"❌ {country} — video_id 추출 실패, 스킵합니다.")
                                 continue
                             video_id = video_id_list[0]
-
-                            # 언어코드 매핑
-                            lang_code = {
-                                "Korea": "ko",
-                                "USA": "en",
-                                "Japan": "ja",
-                                "China": "zh",
-                            }.get(channel["country"], "en")
-                            transcript = get_transcript_text(video_id, lang_code)
+                            transcript = get_transcript_text(video_id)
                             if not transcript:
                                 print(f"❌ {country} — transcript 가져오기 실패, 스킵합니다.")
                                 continue
-                            summary_result = summarize_content(transcript)
-
                             # 기존 데이터에 추가
                             existing_data['summary_content'] = transcript
+                            # Redis 덮어쓰기
+                            redis_client.hset("youtube_data", country, json.dumps(existing_data))
+                            print(f"🔔 {country} — 스크립트 추가 저장 완료")
+                        if existing_data.get('summary_result') is None:
+                            transcript = existing_data.get('summary_content')
+                            summary_result = summarize_content(transcript)
+
                             existing_data['summary_result'] = summary_result
                             # 저장 시간 업데이트 (UTC)
                             existing_data['processed_time'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
                             # Redis 덮어쓰기
                             redis_client.hset("youtube_data", country, json.dumps(existing_data))
-                            print(f"🔔 {country} — 요약 추가 저장 완료")
+                            if summary_result == None:
+                                print(f"🔔 {country} — 요약 결과 추가되지 않음")
+                            else:
+                                print(f"🔔 {country} — 요약 결과 추가 저장 완료")
                             updated = True
-
-                        else:
-                            print(f"⏭️ {country} — 오늘 데이터 이미 존재 (summary도 있음)")
                         continue
                         # processed_time이 오늘 날짜가 아니면 새로 조회
                     else:

@@ -1,10 +1,12 @@
 from difflib import SequenceMatcher
-from youtube_transcript_api import YouTubeTranscriptApi
 from pathlib import Path
 from dotenv import load_dotenv
 import requests
 import os
-import pytz
+from playwright.sync_api import sync_playwright
+import sys
+import asyncio
+
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
 # 🔑 YouTube Data API 키 (보안을 위해 환경변수 사용 추천)
@@ -40,17 +42,44 @@ def get_video_details(video_id):
     items = response.json().get("items")
     return items[0] if items else None
 
-def get_transcript_text(video_id, language_code="en"):
-    try:
-        transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
-        transcript = next((t for t in transcripts if t.is_generated and t.language_code == language_code), None) \
-                     or next((t for t in transcripts if t.is_generated), None)
-        if transcript:
-            entries = transcript.fetch()
-            return "\n".join(entry.text for entry in entries)
-    except Exception as e:
-        print("❌ 자막 가져오기 실패:", e)
-    return None
+
+
+def get_transcript_text(video_id):
+    if sys.platform.startswith('win'):
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox"]
+        )
+        video_url = "https://www.youtube.com/watch?v="+video_id
+        page = browser.new_page()
+        page.goto(video_url)
+
+        # 더보기 버튼 클릭
+        try:
+            page.click("tp-yt-paper-button#expand")
+        except:
+            print("⚠️ 더보기 버튼 클릭 실패(이미 열려있을 수도 있음)")
+
+        try:
+            page.click("button:has(span:text('스크립트 표시'))")
+            print("✅ 스크립트 버튼 클릭 성공")
+        except:
+            print("⚠️ 스크립트 버튼 클릭 실패(스크립트 버튼이 없을 수 있음)")
+            browser.close()
+            return None  # 버튼이 없으면 빈 문자열 반환
+
+        # 자막 텍스트 추출
+        page.wait_for_selector("yt-formatted-string.segment-text")
+        segments = page.query_selector_all("yt-formatted-string.segment-text")
+        transcript_texts = [seg.inner_text().strip() for seg in segments]
+        full_transcript = "\n".join(transcript_texts)
+
+        browser.close()
+
+        return full_transcript
 
 def find_best_video(data, keyword, from_playlist=False):
     for item in data.get("items", []):
@@ -95,16 +124,18 @@ def search_video_ids(channel_id, playlist_id, keyword):
 
 def summarize_content(content):
     if content is None:
+        print("contens 없음")
         return None
-    if len(content) > 100000:
-        return "❌ 요약 실패: 글자 수(100000) 초과"
+    if len(content) > 300000:
+        print("300,000 이상 길이 요약내용")
+        return None
     if not content.strip(): #공백만있는경우
+        print("contens 전체 공백")
         return None
-
     try:
 
         completion = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4.1-mini",
             messages=[
                 {"role": "user", "content": content+"\n\n 주요 뉴스 한글로 설명해 한글로"}
             ]
@@ -199,10 +230,7 @@ def get_latest_video_data(channel):
                 })
     # 최신 영상 확정 후 자막 가져오기 (필요한 경우에만)
     if latest["data"] and channel["save_fields"] == "subtitle":
-        lang_code = {
-            "Korea": "ko", "USA": "en", "Japan": "ja", "China": "zh"
-        }.get(channel["country"], "en")
-        transcript = get_transcript_text(latest["video_id"], lang_code)
+        transcript = get_transcript_text(latest["video_id"])
         latest["data"]["summary_content"] = transcript
     return latest["data"]
 
