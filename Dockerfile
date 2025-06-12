@@ -4,14 +4,29 @@ FROM python:3.11-slim
 # 2️⃣ 작업 디렉토리
 WORKDIR /app
 
-# 3️⃣ 의존성 설치
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-# 4️⃣ Playwright와 필요한 라이브러리 설치
-RUN apt-get update && \
-    apt-get install -y \
+# 3️⃣ 시스템 의존성 설치 (Playwright 필수 패키지 추가됨)
+RUN apt-get update && apt-get install -y \
     wget \
+    curl \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libatspi2.0-0 \
+    libxcomposite1 \
+    libgbm1 \
+    libasound2 \
+    libx11-xcb1 \
+    libxrandr2 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libdrm2 \
+    libxshmfence1 \
+    ca-certificates \
+    fonts-liberation \
+    libappindicator3-1 \
+    xdg-utils \
     libgtk-4-1 \
     libgraphene-1.0-0 \
     libgstreamer1.0-0 \
@@ -21,10 +36,17 @@ RUN apt-get update && \
     libsecret-1-0 \
     libmanette-0.2-0 \
     libgles2 && \
-    playwright install
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 5️⃣ 프로젝트 코드 복사
+# 4️⃣ Python 의존성 설치
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# 5️⃣ Playwright 설치 (브라우저 포함)
+RUN pip install playwright && playwright install --with-deps
+
+# 6️⃣ 프로젝트 복사
 COPY . .
 
-# 6️⃣ 앱 실행 (main.py 기준)
+# 7️⃣ 앱 실행
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
