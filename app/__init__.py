@@ -110,12 +110,6 @@ def create_app():
 
     @app.get("/test-code")
     def test_code():
-        result = {}
-        video_url = "https://www.youtube.com/watch?v=WxnFW-yn3YM"
-        transcript = 임시코드.get_youtube_transcript_text(video_url)
-        print("\n=== 최종 자막 ===")
-        print(transcript)
-        result["transcript"] = transcript
-        return result
+        return "test code실행"
 
     return app
