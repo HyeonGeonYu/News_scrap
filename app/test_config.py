@@ -48,7 +48,6 @@ channels = [
         },
     ]
 
-
 dmi_KR_STOCK_SYMBOLS = {
          "kospi200": "2001",          # 코스피 200
     }
