@@ -17,6 +17,5 @@ redis_client = redis.Redis(
     host=REDIS_HOST,
     port=REDIS_PORT,
     password=REDIS_PASSWORD,
-    ssl=True,
-    decode_responses=True
+    ssl=True
 )

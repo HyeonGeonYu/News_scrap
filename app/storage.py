@@ -192,8 +192,10 @@ def save_daily_data():
     save_dict = {}
 
     filtered_data = {}
-    for country, json_str in youtube_data.items():
+    for country_bytes, json_bytes in youtube_data.items():
         try:
+            country = country_bytes.decode()
+            json_str = json_bytes.decode()
             data = json.loads(json_str)
 
             # processed_time 가져오기 (UTC로 되어있다고 가정)
