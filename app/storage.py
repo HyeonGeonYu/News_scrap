@@ -1,6 +1,6 @@
 import json
 from app.URL과요약문만들기 import get_latest_video_data, summarize_content, get_transcript_text
-from app.지수정보가져오기 import fetch_stock_info, calculate_dxy_from_currency_data
+from app.지수정보가져오기 import fetch_stock_info, calculate_dxy_from_currency_data, get_access_token
 from app.휴장일구하기 import get_market_holidays
 from urllib.parse import urlparse, parse_qs
 from pytz import timezone, utc
@@ -8,7 +8,18 @@ from app.redis_client import redis_client
 from datetime import datetime
 from app.test_config import ALL_SYMBOLS, channels
 import pytz
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
 # url, 요약 저장 코드
+env_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
+KIS_APP_KEY = os.getenv("KIS_APP_KEY")
+KIS_APP_SECRET = os.getenv("KIS_APP_SECRET")
+CACHE_PATH = Path(__file__).resolve().parent / "token_cache.json"
+
 def convert_to_kst(published_utc_str):
     seoul_tz = timezone("Asia/Seoul")
     published_utc = datetime.strptime(published_utc_str, "%Y-%m-%dT%H:%M:%SZ")
@@ -111,20 +122,20 @@ def fetch_and_store_youtube_data():
 
 def fetch_and_store_chart_data():
     results = []
-
+    token = get_access_token(KIS_APP_KEY, KIS_APP_SECRET)
     # ALL_SYMBOLS에 정의된 각각의 카테고리별로 처리
     for source, symbol_dict in ALL_SYMBOLS.items():
         for category, symbols in symbol_dict.items():
             source_data = {}
             if category =='currency':
-                new_data = calculate_dxy_from_currency_data()
+                new_data = calculate_dxy_from_currency_data(token)
                 source_data['dxy'] = new_data
                 results.append(
                     f"✅ [{source.upper()} - {category.upper()} - {'dxy'.upper()}] {len(new_data['data'])}개 데이터 수집 완료")
             for name, symbol in symbols.items():
                 try:
                     # fetch_stock_info 호출 시, symbol과 source 전달
-                    new_data = fetch_stock_info(symbol, category,source=source, day_num=200)
+                    new_data = fetch_stock_info(symbol, token, category,source=source, day_num=200)
                     source_data[name] = new_data
 
                     results.append(f"✅ [{source.upper()} - {category.upper()} - {name.upper()}] {len(new_data['data'])}개 데이터 수집 완료")
@@ -243,8 +254,8 @@ def scheduled_store():
 
 
 if __name__ == "__main__":
-    result = fetch_and_store_youtube_data()
-    print(result)
+    # result = fetch_and_store_youtube_data()
+    # print(result)
 
     result = fetch_and_store_chart_data()
     print(result)

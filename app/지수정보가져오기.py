@@ -53,7 +53,7 @@ def save_token_to_cache(access_token, expires_at_str):
             "expires_at": expires_at.isoformat()
         }, f)
 
-def get_access_token(app_key, app_secret):
+def get_access_token(KIS_APP_KEY,KIS_APP_SECRET ):
     cached_token = load_cached_token()
     if cached_token:
         print("✅ Using cached access token.")
@@ -64,8 +64,8 @@ def get_access_token(app_key, app_secret):
     headers = {"Content-Type": "application/json; charset=UTF-8"}
     body = {
         "grant_type": "client_credentials",
-        "appkey": app_key,
-        "appsecret": app_secret
+        "appkey": KIS_APP_KEY,
+        "appsecret": KIS_APP_SECRET
     }
 
     response = requests.post(url, headers=headers, json=body)
@@ -91,12 +91,7 @@ def process_row_data(row, field_map, volume_key="acml_vol", extra_fields=None):
         "volume": safe_int(row.get(volume_key, 0)),
         **(extra_fields or {})
     }
-
-token = get_access_token(KIS_APP_KEY, KIS_APP_SECRET)
-app_key = KIS_APP_KEY
-app_secret = KIS_APP_SECRET
-
-def fetch_stock_or_index_prices(symbol,category="index", source="domestic", num_days=200):
+def fetch_stock_or_index_prices(symbol,token,category="index", source="domestic", num_days=200):
     # 오늘 날짜와 200일 전 날짜 계산
     time.sleep(0.2)
     today = datetime.today()
@@ -113,8 +108,8 @@ def fetch_stock_or_index_prices(symbol,category="index", source="domestic", num_
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
-            "appkey": app_key,
-            "appsecret": app_secret,
+            "appkey": KIS_APP_KEY,
+            "appsecret": KIS_APP_SECRET,
             "tr_id": tr_id,
             "custtype": "P"
         }
@@ -165,8 +160,8 @@ def fetch_stock_or_index_prices(symbol,category="index", source="domestic", num_
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
-            "appkey": app_key,
-            "appsecret": app_secret,
+            "appkey": KIS_APP_KEY,
+            "appsecret": KIS_APP_SECRET,
             "tr_id": tr_id,
             "custtype": "P"
         }
@@ -218,8 +213,8 @@ def fetch_stock_or_index_prices(symbol,category="index", source="domestic", num_
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
-            "appkey": app_key,
-            "appsecret": app_secret,
+            "appkey": KIS_APP_KEY,
+            "appsecret": KIS_APP_SECRET,
             "tr_id": tr_id,
             "custtype": "P"
         }
@@ -257,8 +252,8 @@ def fetch_stock_or_index_prices(symbol,category="index", source="domestic", num_
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
-            "appkey": app_key,
-            "appsecret": app_secret,
+            "appkey": KIS_APP_KEY,
+            "appsecret": KIS_APP_SECRET,
             "tr_id": "HHDFC55020100",
             "custtype": "P"  # 개인고객
         }
@@ -376,11 +371,11 @@ def safe_int(val):
         return int(val)
     except (ValueError, TypeError):
         return 0
-def fetch_stock_info(symbol, category,source="krx", day_num=200, ma_period=100):
+def fetch_stock_info(symbol, token, category,source="krx", day_num=200, ma_period=100):
     processed_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
 
-        data = fetch_stock_or_index_prices(symbol, category=category, source=source)
+        data = fetch_stock_or_index_prices(symbol, token, category=category, source=source)
     except ValueError as e:
         print(f"Error: {e}")
         data = None  # 또는 적절한 기본값
@@ -400,7 +395,7 @@ def fetch_stock_info(symbol, category,source="krx", day_num=200, ma_period=100):
 
 # 각 지표들의 평균 계산 (있는 경우에만)
 
-def calculate_dxy_from_currency_data(ma_period=100) -> list:
+def calculate_dxy_from_currency_data(token, ma_period=100) -> list:
     processed_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
     required = ["usd_eur", "usd_jpy", "usd_gbp", "usd_cad", "usd_sek", "usd_chf"]
     os_CURRENCY_SYMBOLS = {
@@ -424,7 +419,7 @@ def calculate_dxy_from_currency_data(ma_period=100) -> list:
     currency_data = {}
     for ticker in required:
         symbol = os_CURRENCY_SYMBOLS[ticker]
-        raw = fetch_stock_or_index_prices(symbol, category='currency', source='overseas')
+        raw = fetch_stock_or_index_prices(symbol, token, category='currency', source='overseas')
         df = pd.DataFrame(raw)
         df['date'] = pd.to_datetime(df['date'])
         df = df.sort_values('date')
@@ -473,17 +468,17 @@ def calculate_dxy_from_currency_data(ma_period=100) -> list:
 
 # ✅ 테스트 실행
 if __name__ == "__main__":
+    token = get_access_token(KIS_APP_KEY, KIS_APP_SECRET)
 
     results = []
-    # calculate_dxy_from_currency_data()
-    # get_overseas_index_master_dataframe
+    calculate_dxy_from_currency_data(token)
     for source, symbol_dict in ALL_SYMBOLS.items():
         for category, symbols in symbol_dict.items():
             source_data = {}
             for name, symbol in symbols.items():
                 try:
                     # fetch_stock_info 호출 시, symbol과 source 전달
-                    new_data = fetch_stock_info(symbol, category,source=source, day_num=200)
+                    new_data = fetch_stock_info(symbol, token, category,source=source, day_num=200)
                     source_data[name] = new_data
 
 
