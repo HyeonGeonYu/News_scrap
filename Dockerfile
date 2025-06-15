@@ -3,7 +3,6 @@ FROM python:3.11-slim
 
 # 2️⃣ 작업 디렉토리
 WORKDIR /app
-ENV PYTHONPATH=/
 
 # 3️⃣ 시스템 의존성 설치 (Playwright 필수 패키지 추가됨)
 RUN apt-get update && apt-get install -y \
@@ -39,6 +38,11 @@ RUN apt-get update && apt-get install -y \
     libgles2 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# 필요한 코드만 복사 (app 폴더만!)
+COPY app/ .
+# PYTHONPATH 설정
+ENV PYTHONPATH=/app
+
 # 4️⃣ Python 의존성 설치
 COPY requirements.txt .
 RUN pip install -r requirements.txt
@@ -46,8 +50,5 @@ RUN pip install -r requirements.txt
 # 5️⃣ Playwright 설치 (브라우저 포함)
 RUN pip install playwright && playwright install --with-deps
 
-# 6️⃣ 프로젝트 복사
-COPY . .
 
-# 7️⃣ 앱 실행
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"]
