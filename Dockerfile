@@ -3,6 +3,7 @@ FROM python:3.11-slim
 
 # 2️⃣ 작업 디렉토리
 WORKDIR /app
+ENV PYTHONPATH=/app
 
 # 3️⃣ 시스템 의존성 설치 (Playwright 필수 패키지 추가됨)
 RUN apt-get update && apt-get install -y \
