@@ -38,10 +38,6 @@ RUN apt-get update && apt-get install -y \
     libgles2 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 필요한 코드만 복사 (app 폴더만!)
-COPY app/ .
-# PYTHONPATH 설정
-ENV PYTHONPATH=/app
 
 # 4️⃣ Python 의존성 설치
 COPY requirements.txt .
@@ -50,5 +46,11 @@ RUN pip install -r requirements.txt
 # 5️⃣ Playwright 설치 (브라우저 포함)
 RUN pip install playwright && playwright install --with-deps
 
+# 필요한 코드만 복사 (app 폴더만!)
+# 프로젝트 전체 복사 (app/ 폴더 유지)
+COPY . .
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"]
+# PYTHONPATH 설정 (app 패키지를 루트로)
+ENV PYTHONPATH=/app
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
