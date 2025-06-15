@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.redis_client import redis_client
 from . import storage
-from . import 임시코드
 
 import json
 from pytz import timezone, utc
