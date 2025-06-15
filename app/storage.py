@@ -7,6 +7,7 @@ from pytz import timezone, utc
 from app.redis_client import redis_client
 from datetime import datetime
 from app.test_config import ALL_SYMBOLS, channels
+import pytz
 # url, 요약 저장 코드
 def convert_to_kst(published_utc_str):
     seoul_tz = timezone("Asia/Seoul")
@@ -169,6 +170,38 @@ def fetch_and_store_holiday_data():
     except Exception as e:
         results.append(f"❌ 전체 공휴일 데이터 처리 중 오류 발생: {str(e)}")
 
+def save_daily_data():
+    youtube_data = redis_client.hgetall("youtube_data")
+
+    kst = pytz.timezone('Asia/Seoul')
+    now_kst = datetime.now(kst)
+
+    today_kst = datetime.now(kst).date()  # 한국 기준 오늘
+    date_str = now_kst.strftime("%Y%m%d")  # Redis 필드 키용 (예: 20250615)
+    save_dict = {}
+
+    filtered_data = {}
+    for country, json_str in youtube_data.items():
+        try:
+            data = json.loads(json_str)
+
+            # processed_time 가져오기 (UTC로 되어있다고 가정)
+            processed_time_utc = datetime.strptime(data['processed_time'], "%Y-%m-%dT%H:%M:%SZ")
+            processed_time_utc = pytz.utc.localize(processed_time_utc)
+
+            # UTC → 한국 시간
+            processed_time_kst = processed_time_utc.astimezone(kst)
+
+            # 오늘 저장된 것만 필터링
+            if processed_time_kst.date() == today_kst:
+                filtered_data[country] = data
+
+        except (KeyError, ValueError, json.JSONDecodeError):
+            print(f"⚠️ {country} 데이터 처리 실패")
+    save_dict = {"youtube_data": filtered_data}
+    redis_client.hset("daily_saved_data", date_str, json.dumps(save_dict, ensure_ascii=False))
+    print(f"✅ {len(filtered_data)}개 저장 완료 → Redis key: daily_saved_data, field: {date_str}")
+
 def scheduled_store():
     now = datetime.now(timezone('Asia/Seoul'))
     print("📈 chart data 저장 시작...")
@@ -203,17 +236,20 @@ def scheduled_store():
         except Exception as e:
             print(f"❌ Redis에서  timestamp 확인 중 오류 발생: {str(e)}")
 
+    # ✅ 밤 11시에만 save_daily_data 실행
+    if now.hour == 23:
+        print("🕚 23시 → 하루 데이터 저장 시작")
+        save_daily_data()
+
 
 if __name__ == "__main__":
     result = fetch_and_store_youtube_data()
     print(result)
-
 
     result = fetch_and_store_chart_data()
     print(result)
 
     result = fetch_and_store_holiday_data()
     print(result)
-
 
     scheduled_store()
