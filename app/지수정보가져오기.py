@@ -304,7 +304,6 @@ def fetch_stock_or_index_prices(symbol,category="index", source="domestic", num_
 
         return all_data
 
-        1
     else:
         raise ValueError("Invalid source type. Use 'domestic' or 'overseas'.")
 
