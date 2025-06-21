@@ -93,7 +93,7 @@ def process_row_data(row, field_map, volume_key="acml_vol", extra_fields=None):
     }
 def fetch_stock_or_index_prices(symbol,token,category="index", source="domestic", num_days=200):
     # 오늘 날짜와 200일 전 날짜 계산
-    time.sleep(0.2)
+    time.sleep(0.5)
     today = datetime.today()
     start_date = (today - timedelta(days=365))  # 1년 전
     end_date = today# 오늘
