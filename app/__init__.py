@@ -80,6 +80,43 @@ def create_app():
             result["error"] = f"공휴일 데이터를 가져오는 중 오류가 발생했습니다: {str(e)}"
             return result
 
+    @app.get("/daily-saved-data")
+    def get_daily_saved_data_api(page: int = 1, per_page: int = 5):
+        try:
+            all_dates = redis_client.hkeys("daily_saved_data")
+            if not all_dates:
+                return {"error": "저장된 daily_saved_data가 없습니다."}
+
+            sorted_dates = sorted(all_dates, reverse=True)
+            total = len(sorted_dates)
+
+            start = (page - 1) * per_page
+            end = start + per_page
+            page_keys = sorted_dates[start:end]
+
+            page_values = redis_client.hmget("daily_saved_data", page_keys)
+
+            data = []
+            for date, value in zip(page_keys, page_values):
+                try:
+                    parsed = json.loads(value)
+                except Exception:
+                    parsed = {"error": "데이터 파싱 실패"}
+                data.append({
+                    "date": date,
+                    "data": parsed
+                })
+
+            return {
+                "total": total,
+                "page": page,
+                "perPage": per_page,
+                "data": data
+            }
+
+        except Exception as e:
+            return {"error": f"daily_saved_data 불러오는 중 오류: {str(e)}"}
+
     @app.get("/test-save")
     def test_save_endpoint():
         now = datetime.now(timezone('Asia/Seoul'))
@@ -110,5 +147,6 @@ def create_app():
     @app.get("/test-code")
     def test_code():
         return "test code실행"
+
 
     return app

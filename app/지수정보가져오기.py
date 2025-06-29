@@ -465,7 +465,6 @@ def calculate_dxy_from_currency_data(token, ma_period=100) -> list:
     return {'processed_time': processed_time, 'data': result}
 
 
-
 # ✅ 테스트 실행
 if __name__ == "__main__":
     token = get_access_token(KIS_APP_KEY, KIS_APP_SECRET)

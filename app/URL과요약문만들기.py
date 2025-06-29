@@ -139,7 +139,7 @@ def summarize_content(content):
                 + "1. ...\n"
                 + "2. ...\n"
                 + "3. ...\n\n"
-                + "각 뉴스는 명확히 구분해서 작성하고, 정리 순서는 뉴스 등장 순서와 같게 해줘."
+                + "각 뉴스는 명확히 구분해서 작성하고, 정리 순서는 뉴스 등장 순서와 같게 해줘. 반드시 한글로 작성해."
         )
 
         completion = openai_client.chat.completions.create(
