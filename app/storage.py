@@ -264,7 +264,7 @@ if __name__ == "__main__":
     result = fetch_and_store_chart_data()
     print(result)
 
-    # result = fetch_and_store_holiday_data()
-    # print(result)
+    result = fetch_and_store_holiday_data()
+    print(result)
 
-    # scheduled_store()
+    scheduled_store()
