@@ -9,7 +9,6 @@ import asyncio
 
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
-# 🔑 YouTube Data API 키 (보안을 위해 환경변수 사용 추천)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # .env에서 불러오기
 OPENAI_API_KEY = os.getenv("OPENAI_API_KE")  # .env에서 불러오기
 import isodate
@@ -133,13 +132,15 @@ def summarize_content(content):
                 + "\n\n---\n\n"
                 + "위 뉴스 전체 내용을 기반으로 각 뉴스 항목별로 정리해줘.\n"
                 + "뉴스가 여러 개일 경우 **각 뉴스마다 아래 형식**을 반복해서 작성해줘:\n\n"
-                + "🗞️ [뉴스 제목 혹은 주제 요약]\n"
+                + "(대제목으로 1,2,3...) 1. 🗞️ [뉴스 제목 혹은 주제 요약] \n"
                 + "✅ 한줄 요약: (핵심 사건을 한 문장으로)\n"
                 + "🔥 주요 쟁점:\n"
-                + "1. ...\n"
-                + "2. ...\n"
-                + "3. ...\n\n"
-                + "각 뉴스는 명확히 구분해서 작성하고, 정리 순서는 뉴스 등장 순서와 같게 해줘. 반드시 한글로 작성해."
+                + " (들여쓰기 4칸 보기편하게)1) ...\n"
+                + " (들여쓰기 4칸 보기편하게)2) ...\n"
+                + " (들여쓰기 4칸 보기편하게)3) ...\n\n"
+                + "각 뉴스는 명확히 구분해서 작성해"
+                + "정리 순서는 뉴스 등장 순서와 같게 해줘. "
+                + "반드시 한글,한국어로만 작성해."
         )
 
         completion = openai_client.chat.completions.create(
