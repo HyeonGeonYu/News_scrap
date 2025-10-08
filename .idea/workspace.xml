@@ -5,30 +5,27 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7df84a0d-b1ac-42f6-99c7-b0635011f1ab" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/News_scrap.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/News_scrap.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app/URL과요약문만들기.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/URL과요약문만들기.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/jobs/kis_kospi_code_mst.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/jobs/kis_kospi_code_mst.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/jobs/overseas_future_code.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/jobs/overseas_future_code.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/jobs/overseas_index_code.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/jobs/overseas_index_code.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/ls증권용.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/ls증권용.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/redis_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/redis_client.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/storage.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/storage.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/tasks.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/tasks.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/test_config.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/test_config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/jobs/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/jobs/kis_kospi_code_mst.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/jobs/overseas_future_code.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/jobs/overseas_index_code.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/ls증권용.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/tasks.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/app/test_main.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/test_main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/지수정보가져오기.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/지수정보가져오기.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/휴장일구하기.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/휴장일구하기.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jobs/frgn_code_part1.tmp" beforeDir="false" afterPath="$PROJECT_DIR$/jobs/frgn_code_part1.tmp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/jobs/frgn_code_part2.tmp" beforeDir="false" afterPath="$PROJECT_DIR$/jobs/frgn_code_part2.tmp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/한투용.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jobs/ffcode.mst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jobs/ffcode.mst.zip" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jobs/ffcode.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jobs/frgn_code.mst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jobs/frgn_code.mst.zip" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jobs/frgn_code.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jobs/frgn_code_part1.tmp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jobs/frgn_code_part2.tmp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jobs/kospi_code.mst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/jobs/kospi_code.xlsx" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -92,9 +89,11 @@
     &quot;Python.한국지수가져오기.executor&quot;: &quot;Debug&quot;,
     &quot;Python.휴장일구하기.executor&quot;: &quot;Debug&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Hyeongeon/Hansoldeco_s3_comp/tradingBot&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Hyeongeon/PycharmProjects/News_scrap&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -556,8 +555,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-1d06a55b98c1-0b3e54e931b4-JavaScript-PY-241.18034.82" />
-        <option value="bundled-python-sdk-975db3bf15a3-2767605e8bc2-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-241.18034.82" />
+        <option value="bundled-js-predefined-d6986cc7102b-b598e85cdad2-JavaScript-PY-252.25557.178" />
+        <option value="bundled-python-sdk-ce6832f46686-7b97d883f26b-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-252.25557.178" />
       </set>
     </attachedChunks>
   </component>
@@ -711,6 +710,15 @@
       <workItem from="1756699631873" duration="74000" />
       <workItem from="1756817530255" duration="2226000" />
       <workItem from="1756894886828" duration="98000" />
+      <workItem from="1758591329993" duration="18000" />
+      <workItem from="1758608896677" duration="758000" />
+      <workItem from="1758631581278" duration="35000" />
+      <workItem from="1758701418800" duration="60000" />
+      <workItem from="1759629524046" duration="1093000" />
+      <workItem from="1759828050841" duration="11000" />
+      <workItem from="1759908401732" duration="92000" />
+      <workItem from="1759911801510" duration="880000" />
+      <workItem from="1759929721974" duration="4193000" />
     </task>
     <servers />
   </component>
@@ -722,7 +730,7 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>194</line>
+          <line>195</line>
           <option name="timeStamp" value="203" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -731,23 +739,18 @@
           <option name="timeStamp" value="248" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/ls증권용.py</url>
-          <line>26</line>
-          <option name="timeStamp" value="271" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/storage.py</url>
           <line>80</line>
           <option name="timeStamp" value="305" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>253</line>
+          <line>254</line>
           <option name="timeStamp" value="306" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/URL과요약문만들기.py</url>
-          <line>252</line>
+          <line>253</line>
           <option name="timeStamp" value="307" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
@@ -774,11 +777,6 @@
           <url>file://$PROJECT_DIR$/app/지수정보가져오기.py</url>
           <line>469</line>
           <option name="timeStamp" value="331" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/app/임시코드.py</url>
-          <line>70</line>
-          <option name="timeStamp" value="350" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
