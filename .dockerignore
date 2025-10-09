@@ -1,3 +1,4 @@
+# .dockerignore (루트)
 __pycache__/
 *.pyc
 *.pyo
@@ -6,4 +7,9 @@ __pycache__/
 .idea/
 .git/
 .gitignore
+.venv/
+venv/
+dist/
+build/
+.cache/
 app/.env
