@@ -1,56 +1,32 @@
-# 1️⃣ 베이스 이미지
 FROM python:3.11-slim
 
-# 2️⃣ 작업 디렉토리
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    TZ=Asia/Seoul \
+    LANG=C.UTF-8
+
+# timezone, tini, CA
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tzdata ca-certificates tini \
+ && rm -rf /var/lib/apt/lists/*
+
+# 비루트 유저
+RUN useradd -m -u 10001 appuser
+
+# ---- 의존성 설치 (캐시 최적화) ----
 WORKDIR /app
+COPY requirements.txt ./requirements.txt
+RUN python -m pip install --upgrade pip && \
+    python -m pip install -r requirements.txt
 
-# 3️⃣ 시스템 의존성 설치 (Playwright 필수 패키지 추가됨)
-RUN apt-get update && apt-get install -y \
-    wget \
-    curl \
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libatspi2.0-0 \
-    libxcomposite1 \
-    libgbm1 \
-    libasound2 \
-    libx11-xcb1 \
-    libxrandr2 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libdrm2 \
-    libxshmfence1 \
-    ca-certificates \
-    fonts-liberation \
-    libappindicator3-1 \
-    xdg-utils \
-    libgtk-4-1 \
-    libgraphene-1.0-0 \
-    libgstreamer1.0-0 \
-    libgstreamer-plugins-base1.0-0 \
-    libavif15 \
-    libenchant-2-2 \
-    libsecret-1-0 \
-    libmanette-0.2-0 \
-    libgles2 && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# ---- 앱 복사 ----
+# repo 루트의 app/ 디렉토리 전체를 /app 로
+COPY app/ /app/
+RUN chown -R appuser:appuser /app
+USER appuser
 
-
-# 4️⃣ Python 의존성 설치
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-# 5️⃣ Playwright 설치 (브라우저 포함)
-RUN pip install playwright && playwright install --with-deps
-
-# 필요한 코드만 복사 (app 폴더만!)
-# 프로젝트 전체 복사 (app/ 폴더 유지)
-COPY . .
-
-# PYTHONPATH 설정 (app 패키지를 루트로)
-ENV PYTHONPATH=/app
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
+# PID 1 신호/좀비처리
+ENTRYPOINT ["/usr/bin/tini", "--"]
+# app/main.py 실행 (스케줄러 진입점)
+CMD ["python", "main.py"]
