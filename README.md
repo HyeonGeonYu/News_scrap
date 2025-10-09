@@ -5,7 +5,12 @@ pip install -r requirements.txt
 playwright install
 
 # 루트에서
-docker compose down
-docker compose build --no-cache
-docker compose up -d
-docker compose logs -f worker
+# 이미지 빌드 (루트에서, Dockerfile은 app/Dockerfile)
+docker build -f app/Dockerfile -t news-scrap .
+
+# 실행 (app/.env가 있다면)
+docker run -d --name news-scrap `
+  --env-file app/.env `
+  -e TZ=Asia/Seoul `
+  news-scrap
+
