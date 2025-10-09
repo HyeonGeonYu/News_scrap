@@ -75,6 +75,14 @@ def main():
 
     trigger = CronTrigger(minute="0", timezone=SEOUL)  # 매시 정각
     scheduler.add_job(scheduled_store, trigger=trigger, id="scheduled_store", replace_existing=True)
+
+    # ✅ 기동 직후 1회 동기 실행
+    log.info("🚀 Startup run: scheduled_store()")
+    try:
+        scheduled_store()
+    except Exception:
+        log.exception("❌ Startup run 실패")
+
     scheduler.start()
     log.info("✅ Scheduler started. (매시 정각 실행, Asia/Seoul)")
 
