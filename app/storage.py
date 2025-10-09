@@ -1,12 +1,12 @@
 import json
-from app.URL과요약문만들기 import get_latest_video_data, summarize_content, get_transcript_text
-from app.지수정보가져오기 import fetch_stock_info, calculate_dxy_from_currency_data, get_access_token
-from app.휴장일구하기 import get_market_holidays
+from URL과요약문만들기 import get_latest_video_data, summarize_content, get_transcript_text
+from 지수정보가져오기 import fetch_stock_info, calculate_dxy_from_currency_data, get_access_token
+from 휴장일구하기 import get_market_holidays
 from urllib.parse import urlparse, parse_qs
 from pytz import timezone, utc
-from app.redis_client import redis_client
+from redis_client import redis_client
 from datetime import datetime
-from app.test_config import ALL_SYMBOLS, channels
+from test_config import ALL_SYMBOLS, channels
 import os
 from pathlib import Path
 from dotenv import load_dotenv
