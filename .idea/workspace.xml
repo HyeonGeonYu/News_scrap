@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7df84a0d-b1ac-42f6-99c7-b0635011f1ab" name="Changes" comment="" />
+    <list default="true" id="7df84a0d-b1ac-42f6-99c7-b0635011f1ab" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.dockerignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docker-compose.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -697,7 +701,7 @@
       <workItem from="1759908401732" duration="92000" />
       <workItem from="1759911801510" duration="880000" />
       <workItem from="1759929721974" duration="4746000" />
-      <workItem from="1759986104058" duration="3469000" />
+      <workItem from="1759986104058" duration="3777000" />
     </task>
     <servers />
   </component>
@@ -739,12 +743,12 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/main.py</url>
-          <line>54</line>
+          <line>90</line>
           <option name="timeStamp" value="343" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/app/main.py</url>
-          <line>51</line>
+          <line>87</line>
           <option name="timeStamp" value="344" />
         </line-breakpoint>
       </breakpoints>
