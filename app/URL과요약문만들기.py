@@ -229,18 +229,17 @@ def get_latest_video_data(channel):
                 continue
             pb_time = datetime.strptime(video["snippet"]["publishedAt"], "%Y-%m-%dT%H:%M:%SZ")
             if not latest["time"] or pb_time > latest["time"]:
-                latest.update({
-                    "time": pb_time,
+                update_dict= {"time": pb_time,
                     "video_id": video_id,
                     "data": {
                         "url": f"https://www.youtube.com/watch?v={video_id}",
                         "title": video["snippet"]["title"],
                         "publishedAt": video["snippet"]["publishedAt"],
                         "summary_target": channel["save_fields"],
-                        "summary_content": video["snippet"]["description"] if channel[
-                                                                                  "save_fields"] == "description" else None
+                        "summary_content": video["snippet"]["description"] if channel["save_fields"] == "description" else None
                     }
-                })
+                }
+                latest.update(update_dict)
     # 최신 영상 확정 후 자막 가져오기 (필요한 경우에만)
     if latest["data"] and channel["save_fields"] == "subtitle":
         transcript = get_transcript_text(latest["video_id"])
