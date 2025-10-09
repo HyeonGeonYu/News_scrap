@@ -51,7 +51,7 @@ def scheduled_store():
             except Exception as e:
                 log.exception("❌ Redis timestamp 확인 중 오류: %s", e)
 
-        if now.hour == 23:
+        if 22 < now.hour :
             log.info("🕚 23시까지 스크랩된 데이터 저장 시작")
             save_daily_data()
 
