@@ -23,6 +23,8 @@ RUN python -m pip install --upgrade pip && \
 # 루트의 app/ 내용을 컨테이너 /app 으로 복사
 COPY app/ /app/
 
+RUN chown -R appuser:appuser /app
+
 USER appuser
 
 ENTRYPOINT ["/usr/bin/tini","--"]
