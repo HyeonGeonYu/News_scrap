@@ -6,15 +6,15 @@ import os
 from playwright.sync_api import sync_playwright
 import sys
 import asyncio
+import isodate
+from openai import OpenAI
 
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # .env에서 불러오기
 OPENAI_API_KEY = os.getenv("OPENAI_API_KE")  # .env에서 불러오기
-import isodate
-from openai import OpenAI
+
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
-from app.test_config import channels
 
 from datetime import datetime
 
@@ -250,7 +250,7 @@ def get_latest_video_data(channel):
 
 # ✅ 테스트 실행
 if __name__ == "__main__":
-
+    from app.test_config import channels
     results = {}
     for channel in channels:
         country = channel["country"]

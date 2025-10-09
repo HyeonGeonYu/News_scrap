@@ -1,7 +1,6 @@
 import requests
 import datetime
 import os
-import json
 from pathlib import Path
 from dotenv import load_dotenv
 env_path = Path(__file__).resolve().parent / ".env"

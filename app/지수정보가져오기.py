@@ -3,7 +3,6 @@ from pykrx import stock
 import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv
-from app.test_config import ALL_SYMBOLS
 import requests
 import os
 import json
@@ -467,6 +466,7 @@ def calculate_dxy_from_currency_data(token, ma_period=100) -> list:
 
 # ✅ 테스트 실행
 if __name__ == "__main__":
+    from app.test_config import ALL_SYMBOLS
     token = get_access_token(KIS_APP_KEY, KIS_APP_SECRET)
 
     results = []
@@ -479,8 +479,6 @@ if __name__ == "__main__":
                     # fetch_stock_info 호출 시, symbol과 source 전달
                     new_data = fetch_stock_info(symbol, token, category,source=source, day_num=200)
                     source_data[name] = new_data
-
-
                     results.append(f"✅ [{source.upper()} - {category.upper()} - {name.upper()}] {len(new_data['data'])}개 데이터 수집 완료")
                 except Exception as e:
                     results.append(f"❌ [{source.upper()} - {category.upper()} - {name.upper()}] 수집 중 오류 발생: {str(e)}")

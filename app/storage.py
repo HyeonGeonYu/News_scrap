@@ -7,7 +7,6 @@ from pytz import timezone, utc
 from app.redis_client import redis_client
 from datetime import datetime
 from app.test_config import ALL_SYMBOLS, channels
-import pytz
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -15,7 +14,6 @@ from dotenv import load_dotenv
 # url, 요약 저장 코드
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
-
 KIS_APP_KEY = os.getenv("KIS_APP_KEY")
 KIS_APP_SECRET = os.getenv("KIS_APP_SECRET")
 CACHE_PATH = Path(__file__).resolve().parent / "token_cache.json"
@@ -184,12 +182,11 @@ def fetch_and_store_holiday_data():
 def save_daily_data():
     youtube_data = redis_client.hgetall("youtube_data")
 
-    kst = pytz.timezone('Asia/Seoul')
+    kst = timezone('Asia/Seoul')
     now_kst = datetime.now(kst)
 
     today_kst = datetime.now(kst).date()  # 한국 기준 오늘
     date_str = now_kst.strftime("%Y%m%d")  # Redis 필드 키용 (예: 20250615)
-    save_dict = {}
 
     filtered_data = {}
     for country_bytes, json_bytes in youtube_data.items():
@@ -200,7 +197,7 @@ def save_daily_data():
 
             # processed_time 가져오기 (UTC로 되어있다고 가정)
             processed_time_utc = datetime.strptime(data['processed_time'], "%Y-%m-%dT%H:%M:%SZ")
-            processed_time_utc = pytz.utc.localize(processed_time_utc)
+            processed_time_utc = utc.localize(processed_time_utc)
 
             # UTC → 한국 시간
             processed_time_kst = processed_time_utc.astimezone(kst)
@@ -215,45 +212,6 @@ def save_daily_data():
     redis_client.hset("daily_saved_data", date_str, json.dumps(save_dict, ensure_ascii=False))
     print(f"✅ {len(filtered_data)}개 저장 완료 → Redis key: daily_saved_data, field: {date_str}")
 
-def scheduled_store():
-    now = datetime.now(timezone('Asia/Seoul'))
-    print("📈 chart data 저장 시작...")
-    stored_result = fetch_and_store_chart_data()
-    print(stored_result)
-
-    if 11 <= now.hour < 15:  # 11시 ~ 14시 59분
-        print("⏰ Scheduled store running at", now.strftime("%Y-%m-%d %H:%M"))
-        youtube_result = fetch_and_store_youtube_data()
-        print(youtube_result)
-
-
-
-    # ✅ 월요일일 때만 실행
-    if now.weekday() == 0:  # 0 = 월요일
-        print("📅 월요일: 휴일 데이터 저장 체크 중...")
-
-        try:
-            timestamp_str = redis_client.hget("market_holidays", "all_holidays_timestamp")
-            if timestamp_str:
-                timestamp = datetime.strptime(timestamp_str.decode(), "%Y-%m-%dT%H:%M:%SZ")
-                timestamp_kst = timestamp.replace(tzinfo=timezone('UTC')).astimezone(timezone('Asia/Seoul'))
-
-                if timestamp_kst.date() == now.date():
-                    print("⏭️ 오늘 이미 휴일 데이터가 저장됨. 생략합니다.")
-                    return
-
-            # 저장 안 되어 있거나 날짜가 오늘이 아니면 실행
-            holiday_result = fetch_and_store_holiday_data()
-            print(holiday_result)
-
-        except Exception as e:
-            print(f"❌ Redis에서  timestamp 확인 중 오류 발생: {str(e)}")
-
-    # ✅ 밤 11시에만 save_daily_data 실행
-    if now.hour == 23:
-        print("🕚 23시 → 하루 데이터 저장 시작")
-        save_daily_data()
-
 
 if __name__ == "__main__":
 
@@ -266,5 +224,3 @@ if __name__ == "__main__":
 
     result = fetch_and_store_holiday_data()
     print(result)
-
-    scheduled_store()
