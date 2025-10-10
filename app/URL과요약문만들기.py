@@ -117,6 +117,9 @@ def search_video_ids(channel_id, playlist_id, keyword):
     return results
 
 def summarize_content(content):
+    # 요약은 임시로 중단
+    return None
+
     if content is None:
         print("contents 없음")
         return None
