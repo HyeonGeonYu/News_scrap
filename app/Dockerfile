@@ -1,5 +1,5 @@
 # app/Dockerfile
-FROM mcr.microsoft.com/playwright/python:v1.47.0-jammy
+FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -18,7 +18,8 @@ WORKDIR /app
 # 컨텍스트는 루트(.) → 루트의 requirements.txt 복사
 COPY requirements.txt ./requirements.txt
 RUN python -m pip install --upgrade pip && \
-    python -m pip install -r requirements.txt
+    python -m pip install -r requirements.txt && \
+    python -m playwright install --with-deps chromium
 
 # 루트의 app/ 내용을 컨테이너 /app 으로 복사
 COPY app/ /app/
