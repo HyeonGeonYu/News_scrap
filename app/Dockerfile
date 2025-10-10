@@ -5,7 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     TZ=Asia/Seoul \
-    LANG=C.UTF-8
+    LANG=C.UTF-8 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata ca-certificates tini \
@@ -20,6 +22,8 @@ COPY requirements.txt ./requirements.txt
 RUN python -m pip install --upgrade pip && \
     python -m pip install -r requirements.txt && \
     python -m playwright install --with-deps chromium
+
+RUN chown -R appuser:appuser /ms-playwright
 
 # 루트의 app/ 내용을 컨테이너 /app 으로 복사
 COPY app/ /app/

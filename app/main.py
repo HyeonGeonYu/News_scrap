@@ -23,18 +23,8 @@ def scheduled_store(run_all: bool = False):
     run_all=True 이면 시간/요일 조건을 무시하고 가능한 작업을 모두 수행.
     """
     try:
-        # 데일리 저장: 평소엔 23시 이후, run_all이면 즉시 수행
+
         now = datetime.now(SEOUL)
-
-        if run_all or (now.hour > 22):
-            log.info("🕚 데일리 데이터 저장 실행")
-            save_daily_data()
-        else:
-            log.info("⏭️ 데일리 저장 시간대 아님 (run_all=False)")
-
-        log.info("📈 chart data 저장 시작...")
-        stored_result = fetch_and_store_chart_data()
-        log.info(stored_result)
 
         # 유튜브 데이터: 평소엔 11~15시, run_all이면 즉시 수행
         if run_all or (11 <= now.hour < 15):
@@ -43,6 +33,11 @@ def scheduled_store(run_all: bool = False):
             log.info(str(youtube_result))
         else:
             log.info("⏭️ YouTube 저장 시간대 아님 (run_all=False)")
+
+        log.info("📈 chart data 저장 시작...")
+        stored_result = fetch_and_store_chart_data()
+        log.info(stored_result)
+
 
         # 휴일 데이터: 평소엔 월요일만, run_all이면 즉시 수행
         if run_all or now.weekday() == 0:
@@ -69,6 +64,12 @@ def scheduled_store(run_all: bool = False):
         else:
             log.info("⏭️ 휴일 데이터 요일 아님 (run_all=False)")
 
+        # 데일리 저장: 평소엔 23시 이후, run_all이면 즉시 수행
+        if run_all or (now.hour > 22):
+            log.info("🕚 데일리 데이터 저장 실행")
+            save_daily_data()
+        else:
+            log.info("⏭️ 데일리 저장 시간대 아님 (run_all=False)")
 
     except Exception as e:
         log.exception("❌ scheduled_store 실행 중 예외: %s", e)
