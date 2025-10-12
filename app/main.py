@@ -13,7 +13,7 @@ from storage import (
     save_daily_data,
 )
 from redis_client import redis_client
-from coin_backfill import update_symbols
+from coin_backfill import replace_windows_batch_json
 
 SYMBOLS = [s.strip().upper() for s in os.getenv("SYMBOLS", "BTCUSDT,ETHUSDT").split(",") if s.strip()]
 KEEP = int(os.getenv("KEEP", "300"))
@@ -21,48 +21,6 @@ KEEP = int(os.getenv("KEEP", "300"))
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 SEOUL = timezone("Asia/Seoul")
-
-def acquire_lock(key: str, ttl_sec: int) -> bool:
-    try:
-        return bool(redis_client.set(key, "1", nx=True, ex=ttl_sec))
-    except Exception:
-        return False
-
-def release_lock(key: str):
-    try:
-        redis_client.delete(key)
-    except Exception:
-        pass
-
-def run_klines_minutely():
-    """매 분: 1분봉(1) 윈도우 재구성 (정각 + 6초 추천)"""
-    lock_key = "job:kline:1m"
-    if not acquire_lock(lock_key, ttl_sec=55):
-        log.info("⏭️ 1m job is locked (skip)")
-        return
-    try:
-        # ★ 새 API: 현재 시각 기준 윈도우(KEEP=300)로 통째로 재작성
-        update_symbols(SYMBOLS, intervals=["1"], keep=KEEP)
-        log.info("✅ 1m kline update done")
-    except Exception as e:
-        log.exception("❌ 1m kline update error: %s", e)
-    finally:
-        release_lock(lock_key)
-
-def run_klines_daily():
-    """매일: 1일봉(D) 윈도우 재구성 (UTC 자정 + 1분 = KST 09:01 권장)"""
-    lock_key = "job:kline:1d"
-    if not acquire_lock(lock_key, ttl_sec=300):
-        log.info("⏭️ 1d job is locked (skip)")
-        return
-    try:
-        # ★ 새 API
-        update_symbols(SYMBOLS, intervals=["D"], keep=KEEP)
-        log.info("✅ 1d kline update done")
-    except Exception as e:
-        log.exception("❌ 1d kline update error: %s", e)
-    finally:
-        release_lock(lock_key)
 
 def scheduled_store(run_all: bool = False):
     """네가 기존에 돌리던 저장 작업들."""
@@ -113,6 +71,23 @@ def scheduled_store(run_all: bool = False):
     except Exception as e:
         log.exception("❌ scheduled_store 실행 중 예외: %s", e)
 
+# ⬇️ 분봉/일봉 작업: 락 제거, HSET 1회로 배치 저장
+def run_klines_minutely():
+    """매 분: 1분봉(1) 최신 창을 HASH(JSON)로 일괄 저장 (HSET 1회)"""
+    try:
+        replace_windows_batch_json(redis_client, SYMBOLS, interval="1", keep=KEEP)
+        log.info("✅ 1m kline JSON batch update done (1 write)")
+    except Exception as e:
+        log.exception("❌ 1m kline update error: %s", e)
+
+def run_klines_daily():
+    """매일: 1일봉(D) 최신 창을 HASH(JSON)로 일괄 저장 (HSET 1회)"""
+    try:
+        replace_windows_batch_json(redis_client, SYMBOLS, interval="D", keep=KEEP)
+        log.info("✅ 1D kline JSON batch update done (1 write)")
+    except Exception as e:
+        log.exception("❌ 1D kline update error: %s", e)
+
 def main():
     executors = {"default": ThreadPoolExecutor(5)}
     job_defaults = {"coalesce": True, "max_instances": 1, "misfire_grace_time": 300}
@@ -133,14 +108,13 @@ def main():
         replace_existing=True,
     )
 
-    # 1일봉: UTC 00:01 == KST 09:01 에 맞춰 실행
+    # 1일봉: UTC 00:01 == KST 09:01 → KST 기준이면 09:01로 설정
     scheduler.add_job(
         run_klines_daily,
-        CronTrigger(hour="0", minute="1", timezone=SEOUL),
+        CronTrigger(hour="9", minute="1", timezone=SEOUL),
         id="kline_daily",
         replace_existing=True,
     )
-
     # ── 기동 직후 1회(강제 전체 실행)
     log.info("🚀 Startup run: scheduled_store(run_all=True) + kline minutely/daily")
     try:
