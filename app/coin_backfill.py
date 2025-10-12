@@ -165,11 +165,19 @@ def replace_windows_batch_json(redis_client, symbols: List[str], interval: str, 
 
 def load_window(redis_client, symbol: str, interval: str):
     key = _hash_key(interval)
-    raw = redis_client.hget(key, symbol)
-    last_ts_raw = redis_client.hget(key, f"last_ts:{symbol}")
+    raw = redis_client.hget(key, symbol)   # 1 call
     bars = loads_compact(raw) if raw else []
-    last_ts = int(last_ts_raw) if last_ts_raw else 0
+    last_ts = bars[-1]["time"] if bars else 0
     return bars, last_ts
+
+def load_windows(redis_client, symbols, interval):
+    key = _hash_key(interval)
+    raws = redis_client.hmget(key, symbols)   # 1 call
+    out = {}
+    for sym, raw in zip(symbols, raws):
+        bars = loads_compact(raw) if raw else []
+        out[sym] = (bars, bars[-1]["time"] if bars else 0)
+    return out
 
 # ───────────────────────────────────────────────────────────
 # 단발성 실행 테스트용 main
@@ -185,7 +193,6 @@ def main():
         format="%(asctime)s | %(levelname)s | %(message)s",
     )
     log = logging.getLogger("coin_backfill_test")
-
 
     # Redis 연결 확인
     try:
@@ -208,19 +215,6 @@ def main():
         except Exception as e:
             log.exception("❌ batch update failed for interval=%s: %s", iv, e)
 
-    # 샘플 읽기(첫 심볼/첫 인터벌) 확인
-    try:
-        if symbols and intervals:
-            bars, last_ts = load_window(redis_client, symbols[0], intervals[0])
-            log.info("Sample check: %s %s len=%d last_ts=%s",
-                     symbols[0], intervals[0], len(bars), last_ts)
-            if bars:
-                latest = bars[-1]
-                log.info("Latest bar: time=%s open=%s high=%s low=%s close=%s",
-                         latest.get("time"), latest.get("open"), latest.get("high"),
-                         latest.get("low"), latest.get("close"))
-    except Exception as e:
-        log.exception("❌ sample read failed: %s", e)
 
     log.info("DONE single-run test.")
 
