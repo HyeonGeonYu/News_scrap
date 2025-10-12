@@ -10,13 +10,58 @@ from storage import (
     fetch_and_store_youtube_data,
     fetch_and_store_holiday_data,
     save_daily_data,
-    redis_client,
 )
-
+from redis_client import redis_client
+from coin_backfill import coin_backfill_symbols
+import os
+SYMBOLS = [s.strip().upper() for s in os.getenv("SYMBOLS", "BTCUSDT,ETHUSDT").split(",") if s.strip()]
+KEEP = int(os.getenv("KEEP", "300"))
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
-
 SEOUL = timezone("Asia/Seoul")
+
+def acquire_lock(key: str, ttl_sec: int) -> bool:
+    try:
+        # NX + EX (중복 실행 방지)
+        return bool(redis_client.set(key, "1", nx=True, ex=ttl_sec))
+    except Exception:
+        return False
+
+def release_lock(key: str):
+    try:
+        redis_client.delete(key)
+    except Exception:
+        pass
+
+def run_klines_minutely():
+    """매 분: 1분봉 백필 (정각 + 6초 추천)"""
+    lock_key = "job:kline:1m"
+    if not acquire_lock(lock_key, ttl_sec=55):
+        log.info("⏭️ 1m job is locked (skip)")
+        return
+    try:
+        coin_backfill_symbols(redis_client, SYMBOLS, intervals=["1"])
+        log.info("✅ 1m kline backfill done")
+    except Exception as e:
+        log.exception("❌ 1m kline backfill error: %s", e)
+    finally:
+        release_lock(lock_key)
+
+def run_klines_daily():
+    """매일: 1일봉 백필 (UTC 자정 + 60초 ≒ KST 09:01 권장)"""
+    lock_key = "job:kline:1d"
+    if not acquire_lock(lock_key, ttl_sec=300):
+        log.info("⏭️ 1d job is locked (skip)")
+        return
+    try:
+        coin_backfill_symbols(redis_client, SYMBOLS, intervals=["D"])
+        log.info("✅ 1d kline backfill done")
+    except Exception as e:
+        log.exception("❌ 1d kline backfill error: %s", e)
+    finally:
+        release_lock(lock_key)
+
+
 
 def scheduled_store(run_all: bool = False):
     """
@@ -90,10 +135,28 @@ def main():
     trigger = CronTrigger(minute="0", timezone=SEOUL)  # 매시 정각
     scheduler.add_job(scheduled_store, trigger=trigger, id="scheduled_store", replace_existing=True)
 
+    scheduler.add_job(
+        run_klines_minutely,
+        CronTrigger(second="6", minute="*", timezone=SEOUL),
+        id="kline_minutely",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        run_klines_daily,
+        CronTrigger(hour="0", minute="1", timezone=SEOUL),
+        id="kline_daily",
+        replace_existing=True,
+    )
+
+
     # ✅ 기동 직후 1회 동기 실행: 시간 조건 무시하고 전부 수행
     log.info("🚀 Startup run: scheduled_store(run_all=True)")
     try:
         scheduled_store(run_all=True)
+        run_klines_minutely()
+        run_klines_daily()
+
     except Exception:
         log.exception("❌ Startup run 실패")
 
