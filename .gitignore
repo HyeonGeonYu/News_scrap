@@ -5,3 +5,4 @@ token_cache.json  # 캐시 파일도 민감 정보가 포함될 수 있음
 *.json
 jops/
 app/임시코드.py
+.idea/
