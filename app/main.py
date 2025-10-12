@@ -1,10 +1,11 @@
 # main.py
-import sys, time, signal, logging
+import sys, time, signal, logging, os
 from datetime import datetime
 from pytz import timezone, utc
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
+
 from storage import (
     fetch_and_store_chart_data,
     fetch_and_store_youtube_data,
@@ -12,17 +13,17 @@ from storage import (
     save_daily_data,
 )
 from redis_client import redis_client
-from coin_backfill import coin_backfill_symbols
-import os
+from coin_backfill import update_symbols
+
 SYMBOLS = [s.strip().upper() for s in os.getenv("SYMBOLS", "BTCUSDT,ETHUSDT").split(",") if s.strip()]
 KEEP = int(os.getenv("KEEP", "300"))
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 SEOUL = timezone("Asia/Seoul")
 
 def acquire_lock(key: str, ttl_sec: int) -> bool:
     try:
-        # NX + EX (중복 실행 방지)
         return bool(redis_client.set(key, "1", nx=True, ex=ttl_sec))
     except Exception:
         return False
@@ -34,46 +35,43 @@ def release_lock(key: str):
         pass
 
 def run_klines_minutely():
-    """매 분: 1분봉 백필 (정각 + 6초 추천)"""
+    """매 분: 1분봉(1) 윈도우 재구성 (정각 + 6초 추천)"""
     lock_key = "job:kline:1m"
     if not acquire_lock(lock_key, ttl_sec=55):
         log.info("⏭️ 1m job is locked (skip)")
         return
     try:
-        coin_backfill_symbols(redis_client, SYMBOLS, intervals=["1"])
-        log.info("✅ 1m kline backfill done")
+        # ★ 새 API: 현재 시각 기준 윈도우(KEEP=300)로 통째로 재작성
+        update_symbols(SYMBOLS, intervals=["1"], keep=KEEP)
+        log.info("✅ 1m kline update done")
     except Exception as e:
-        log.exception("❌ 1m kline backfill error: %s", e)
+        log.exception("❌ 1m kline update error: %s", e)
     finally:
         release_lock(lock_key)
 
 def run_klines_daily():
-    """매일: 1일봉 백필 (UTC 자정 + 60초 ≒ KST 09:01 권장)"""
+    """매일: 1일봉(D) 윈도우 재구성 (UTC 자정 + 1분 = KST 09:01 권장)"""
     lock_key = "job:kline:1d"
     if not acquire_lock(lock_key, ttl_sec=300):
         log.info("⏭️ 1d job is locked (skip)")
         return
     try:
-        coin_backfill_symbols(redis_client, SYMBOLS, intervals=["D"])
-        log.info("✅ 1d kline backfill done")
+        # ★ 새 API
+        update_symbols(SYMBOLS, intervals=["D"], keep=KEEP)
+        log.info("✅ 1d kline update done")
     except Exception as e:
-        log.exception("❌ 1d kline backfill error: %s", e)
+        log.exception("❌ 1d kline update error: %s", e)
     finally:
         release_lock(lock_key)
 
-
-
 def scheduled_store(run_all: bool = False):
-    """
-    run_all=True 이면 시간/요일 조건을 무시하고 가능한 작업을 모두 수행.
-    """
+    """네가 기존에 돌리던 저장 작업들."""
     try:
-
         now = datetime.now(SEOUL)
 
-        # 유튜브 데이터: 평소엔 11~15시, run_all이면 즉시 수행
+        # 유튜브: 11~15시
         if run_all or (11 <= now.hour < 15):
-            log.info("⏰ YouTube 데이터 저장 실행 (%s)", now.strftime("%Y-%m-%d %H:%M"))
+            log.info("⏰ YouTube 데이터 저장 (%s)", now.strftime("%Y-%m-%d %H:%M"))
             youtube_result = fetch_and_store_youtube_data()
             log.info(str(youtube_result))
         else:
@@ -83,10 +81,9 @@ def scheduled_store(run_all: bool = False):
         stored_result = fetch_and_store_chart_data()
         log.info(stored_result)
 
-
-        # 휴일 데이터: 평소엔 월요일만, run_all이면 즉시 수행
+        # 휴일: 월요일
         if run_all or now.weekday() == 0:
-            log.info("📅 휴일 데이터 저장 체크 중...")
+            log.info("📅 휴일 데이터 저장 체크...")
             try:
                 timestamp_b = redis_client.hget("market_holidays", "all_holidays_timestamp")
                 if timestamp_b:
@@ -94,10 +91,7 @@ def scheduled_store(run_all: bool = False):
                     ts_utc = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=utc)
                     ts_kst = ts_utc.astimezone(SEOUL)
                     if ts_kst.date() == now.date():
-                        log.info("⏭️ 오늘 이미 휴일 데이터가 저장됨. 생략합니다.")
-                        # 만약 run_all에서도 강제 갱신하고 싶다면 위 두 줄 대신 아래 두 줄 사용:
-                        # log.info("⚠️ run_all=True: 강제 휴일 데이터 갱신")
-                        # holiday_result = fetch_and_store_holiday_data(); log.info(str(holiday_result))
+                        log.info("⏭️ 오늘 이미 휴일 데이터 저장됨. 생략")
                     else:
                         holiday_result = fetch_and_store_holiday_data()
                         log.info(str(holiday_result))
@@ -105,11 +99,11 @@ def scheduled_store(run_all: bool = False):
                     holiday_result = fetch_and_store_holiday_data()
                     log.info(str(holiday_result))
             except Exception as e:
-                log.exception("❌ Redis timestamp 확인 중 오류: %s", e)
+                log.exception("❌ 휴일 timestamp 확인 중 오류: %s", e)
         else:
             log.info("⏭️ 휴일 데이터 요일 아님 (run_all=False)")
 
-        # 데일리 저장: 평소엔 23시 이후, run_all이면 즉시 수행
+        # 데일리: 23시 이후
         if run_all or (now.hour > 22):
             log.info("🕚 데일리 데이터 저장 실행")
             save_daily_data()
@@ -121,20 +115,17 @@ def scheduled_store(run_all: bool = False):
 
 def main():
     executors = {"default": ThreadPoolExecutor(5)}
-    job_defaults = {
-        "coalesce": True,
-        "max_instances": 1,
-        "misfire_grace_time": 300,
-    }
-    scheduler = BackgroundScheduler(
-        timezone=SEOUL,
-        executors=executors,
-        job_defaults=job_defaults,
+    job_defaults = {"coalesce": True, "max_instances": 1, "misfire_grace_time": 300}
+    scheduler = BackgroundScheduler(timezone=SEOUL, executors=executors, job_defaults=job_defaults)
+
+    scheduler.add_job(
+        scheduled_store,
+        CronTrigger(minute="0", timezone=SEOUL),   # 매시 정각
+        id="scheduled_store",
+        replace_existing=True,
     )
 
-    trigger = CronTrigger(minute="0", timezone=SEOUL)  # 매시 정각
-    scheduler.add_job(scheduled_store, trigger=trigger, id="scheduled_store", replace_existing=True)
-
+    # 1분봉: 정각 + 6초
     scheduler.add_job(
         run_klines_minutely,
         CronTrigger(second="6", minute="*", timezone=SEOUL),
@@ -142,6 +133,7 @@ def main():
         replace_existing=True,
     )
 
+    # 1일봉: UTC 00:01 == KST 09:01 에 맞춰 실행
     scheduler.add_job(
         run_klines_daily,
         CronTrigger(hour="0", minute="1", timezone=SEOUL),
@@ -149,19 +141,17 @@ def main():
         replace_existing=True,
     )
 
-
-    # ✅ 기동 직후 1회 동기 실행: 시간 조건 무시하고 전부 수행
-    log.info("🚀 Startup run: scheduled_store(run_all=True)")
+    # ── 기동 직후 1회(강제 전체 실행)
+    log.info("🚀 Startup run: scheduled_store(run_all=True) + kline minutely/daily")
     try:
         scheduled_store(run_all=True)
         run_klines_minutely()
         run_klines_daily()
-
     except Exception:
         log.exception("❌ Startup run 실패")
 
     scheduler.start()
-    log.info("✅ Scheduler started. (매시 정각 실행, Asia/Seoul)")
+    log.info("✅ Scheduler started. (Asia/Seoul)")
 
     def shutdown(*_):
         log.info("🛑 Shutting down scheduler...")
