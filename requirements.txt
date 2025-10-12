@@ -7,3 +7,4 @@ python-dotenv
 pytz
 apscheduler
 redis
+tenacity

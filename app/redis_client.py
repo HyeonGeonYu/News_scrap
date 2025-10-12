@@ -15,7 +15,7 @@ if REDIS_PORT is None:
 
 redis_client = redis.Redis(
     host=REDIS_HOST,
-    port=REDIS_PORT,
+    port=int(REDIS_PORT),
     password=REDIS_PASSWORD,
     ssl=True
 )
