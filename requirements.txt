@@ -8,3 +8,4 @@ pytz
 apscheduler
 redis
 tenacity
+websockets
