@@ -111,40 +111,36 @@ def scheduled_store(run_all: bool = False):
 # 증분 kline 저장 (매 분 / 매일)
 # ───────────────────────────────────────────────────────────
 def run_klines_minutely():
-    """
-    매 분: 1분봉 증분 수집 → 병합 → HASH(JSON) 일괄 저장(HSET 1회)
-    coin_backfill의 전역 store를 사용하므로 프로세스 기동 후 계속 증분 유지.
-    """
     if not SYMBOLS:
         log.warning("⏭️ SYMBOLS 비어 있음. 1m kline 작업 스킵")
         return
-
     t0 = time.perf_counter()
     try:
         now_ms = int(time.time() * 1000) + SKEW_MS_1M
         keep_for = store.keep_for("1")
 
         for sym in SYMBOLS:
-            last_ts = store.last_ts("1", sym)  # 초 단위
-            start_ms, end_ms = compute_fetch_window(last_ts, "1", now_ms, keep_for)
+            last_ts = store.last_ts("1", sym)
+            start_ms, end_ms = compute_fetch_window(
+                last_ts, "1", now_ms, keep_for, exclude_open=True
+            )
+            if start_ms is None:  # 가져올 것 없음
+                continue
             bars = fetch_bybit_klines(sym, "1", start_ms, end_ms, limit=LIMIT_PER_CALL)
             store.merge_increment("1", sym, bars)
 
         store.flush_interval("1", SYMBOLS)
         dt_ms = (time.perf_counter() - t0) * 1000
-        log.info("✅ 1m kline incremental (symbols=%d, keep=%d) done in %.1f ms (1 write)",
+        log.info("✅ 1m closed-only incremental (symbols=%d, keep=%d) %.1f ms",
                  len(SYMBOLS), keep_for, dt_ms)
     except Exception:
         log.exception("❌ 1m kline incremental error")
 
+
 def run_klines_daily():
-    """
-    매일: 1일봉 증분 수집 → 병합 → HASH(JSON) 일괄 저장(HSET 1회)
-    """
     if not SYMBOLS:
         log.warning("⏭️ SYMBOLS 비어 있음. 1D kline 작업 스킵")
         return
-
     t0 = time.perf_counter()
     try:
         now_ms = int(time.time() * 1000) + SKEW_MS_1D
@@ -152,52 +148,56 @@ def run_klines_daily():
 
         for sym in SYMBOLS:
             last_ts = store.last_ts("D", sym)
-            start_ms, end_ms = compute_fetch_window(last_ts, "D", now_ms, keep_for)
+            start_ms, end_ms = compute_fetch_window(
+                last_ts, "D", now_ms, keep_for, exclude_open=True
+            )
+            if start_ms is None:
+                continue
             bars = fetch_bybit_klines(sym, "D", start_ms, end_ms, limit=LIMIT_PER_CALL)
             store.merge_increment("D", sym, bars)
 
         store.flush_interval("D", SYMBOLS)
         dt_ms = (time.perf_counter() - t0) * 1000
-        log.info("✅ 1D kline incremental (symbols=%d, keep=%d) done in %.1f ms (1 write)",
+        log.info("✅ 1D closed-only incremental (symbols=%d, keep=%d) %.1f ms",
                  len(SYMBOLS), keep_for, dt_ms)
     except Exception:
         log.exception("❌ 1D kline incremental error")
 
+
 # ───────────────────────────────────────────────────────────
 # 스타트업 중복 실행 가드 + 초기 로드/백필(조건부 플러시)
 # ───────────────────────────────────────────────────────────
+# main.py 의 startup_runs() 전체를 다음으로 교체
+
 def startup_runs():
     """
     기동 직후 1회 실행:
-      - 기존 저장 루틴 run_all=True
-      - kline: 메모리 로드/백필 후, 변화가 있을 때만 초기 플러시
-      - 일봉은 스케줄 직전/직후(±5분)엔 중복 write 방지
+      - YouTube/차트/휴일 저장은 그대로
+      - K라인: 무조건 풀 초기화(full_initialize)로 '닫힌 봉' 기준 KEEP개를 채워서 즉시 플러시
+      - 일봉은 스케줄 임박/직후(±5분)면 초기화 스킵
     """
     now = datetime.now(SEOUL)
     scheduled_daily_min = 9 * 60 + 1  # 09:01 KST
     cur_min = now.hour * 60 + now.minute
     run_daily_now = abs(cur_min - scheduled_daily_min) > 5  # ±5분 이내면 스킵
 
-    log.info("🚀 Startup run: scheduled_store(run_all=True) + kline warmup(conditional flush)")
+    log.info("🚀 Startup run: scheduled_store(run_all=True) + FULL kline initialize (closed-only)")
     try:
-        # 기타 잡들
         scheduled_store(run_all=True)
 
-        # 1분봉 초기 로드/백필 → 기존 Redis 스냅샷이 있으면 메모리만 채우고, 없거나 KEEP 길이 차이면 플러시
-        changed_1m = _load_or_backfill_with_dirty_flush("1")
-        if changed_1m:
-            log.info("🔄 Startup flushed initial 1m snapshot")
+        # 1분봉: 항상 풀 초기화 (닫힌 봉만)
+        store.full_initialize(SYMBOLS, "1", exclude_open=True)
+        log.info("🔄 Startup full-initialized 1m snapshot")
 
-        # 1일봉 초기 로드/백필 → 스케줄 임박/직후는 스킵
+        # 1일봉: 스케줄 임박/직후면 스킵, 아니면 풀 초기화
         if run_daily_now:
-            changed_1d = _load_or_backfill_with_dirty_flush("D")
-            if changed_1d:
-                log.info("🔄 Startup flushed initial 1D snapshot")
+            store.full_initialize(SYMBOLS, "D", exclude_open=True)
+            log.info("🔄 Startup full-initialized 1D snapshot")
         else:
-            log.info("⏭️ Startup에서 일봉 초기 플러시 스킵(스케줄 임박/직후)")
-
+            log.info("⏭️ Startup에서 1D full init 스킵(스케줄 임박/직후)")
     except Exception:
         log.exception("❌ Startup run 실패")
+
 
 def _load_or_backfill_with_dirty_flush(interval: str) -> bool:
     """
