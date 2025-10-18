@@ -33,7 +33,7 @@ from coin_backfill import (
 # ───────────────────────────────────────────────────────────
 # 설정
 # ───────────────────────────────────────────────────────────
-SYMBOLS = [s.strip().upper() for s in os.getenv("SYMBOLS", "BTCUSDT,ETHUSDT").split(",") if s.strip()]
+SYMBOLS = [s.strip().upper() for s in os.getenv("SYMBOLS", "BTCUSDT, ETHUSDT, XAUTUSDT").split(",") if s.strip()]
 KEEP_1M = int(os.getenv("KEEP_1M", os.getenv("KEEP", "10080")))
 KEEP_1D = int(os.getenv("KEEP_1D", os.getenv("KEEP", "300")))
 
