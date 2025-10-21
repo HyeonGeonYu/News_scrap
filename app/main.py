@@ -35,7 +35,7 @@ from coin_backfill import (
 # ───────────────────────────────────────────────────────────
 SYMBOLS = [s.strip().upper() for s in os.getenv("SYMBOLS", "BTCUSDT, ETHUSDT, XAUTUSDT").split(",") if s.strip()]
 KEEP_1M = int(os.getenv("KEEP_1M", os.getenv("KEEP", "10080")))
-KEEP_1D = int(os.getenv("KEEP_1D", os.getenv("KEEP", "300")))
+KEEP_1D = int(os.getenv("KEEP_1D", os.getenv("KEEP", "1000")))
 
 LIMIT_PER_CALL = CB_LIMIT_PER_CALL
 SKEW_MS_1M = CB_SKEW_MS_1M
