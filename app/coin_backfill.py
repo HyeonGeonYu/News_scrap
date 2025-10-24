@@ -369,19 +369,61 @@ def compute_fetch_window(
 # ───────────────────────────────────────────────────────────
 # 테스트 실행 (__main__) - argparse 없이 ENV만 사용
 # ───────────────────────────────────────────────────────────
+def run_klines_minutely(SYMBOLS):
+    if not SYMBOLS:
+        log.warning("⏭️ SYMBOLS 비어 있음. 1m kline 작업 스킵")
+        return
+    t0 = time.perf_counter()
+    try:
+        now_ms = int(time.time() * 1000) + SKEW_MS_1M
+        keep_for = store.keep_for("1")
+
+        for sym in SYMBOLS:
+            last_ts = store.last_ts("1", sym)
+            start_ms, end_ms = compute_fetch_window(
+                last_ts, "1", now_ms, keep_for, exclude_open=True
+            )
+            if start_ms is None:  # 가져올 것 없음
+                continue
+            bars = fetch_bybit_klines(sym, "1", start_ms, end_ms, limit=LIMIT_PER_CALL)
+            store.merge_increment("1", sym, bars)
+
+        store.flush_interval("1", SYMBOLS)
+        dt_ms = (time.perf_counter() - t0) * 1000
+        log.info("✅ 1m closed-only incremental (symbols=%d, keep=%d) %.1f ms",
+                 len(SYMBOLS), keep_for, dt_ms)
+    except Exception:
+        log.exception("❌ 1m kline incremental error")
+
+
+def run_klines_daily(SYMBOLS):
+    if not SYMBOLS:
+        log.warning("⏭️ SYMBOLS 비어 있음. 1D kline 작업 스킵")
+        return
+    t0 = time.perf_counter()
+    try:
+        now_ms = int(time.time() * 1000) + SKEW_MS_1D
+        keep_for = store.keep_for("D")
+
+        for sym in SYMBOLS:
+            last_ts = store.last_ts("D", sym)
+            start_ms, end_ms = compute_fetch_window(
+                last_ts, "D", now_ms, keep_for, exclude_open=True
+            )
+            if start_ms is None:
+                continue
+            bars = fetch_bybit_klines(sym, "D", start_ms, end_ms, limit=LIMIT_PER_CALL)
+            store.merge_increment("D", sym, bars)
+
+        store.flush_interval("D", SYMBOLS)
+        dt_ms = (time.perf_counter() - t0) * 1000
+        log.info("✅ 1D closed-only incremental (symbols=%d, keep=%d) %.1f ms",
+                 len(SYMBOLS), keep_for, dt_ms)
+    except Exception:
+        log.exception("❌ 1D kline incremental error")
+
 
 if __name__ == "__main__":
-    """
-    🔧 테스트 실행(환경변수 사용)
-      # 풀 초기화(1, D 모두): 닫힌 봉 기준 KEEP만큼 전량 수집 + 플러시
-      TEST_MODE=full_init TEST_SYMBOLS=BTCUSDT,ETHUSDT KEEP_1M=10080 KEEP_1D=1500 python coin_backfill.py
-
-      # 증분 1회(닫힌 봉만): 먼저 full_init을 한 번 수행한 뒤 step 추천
-      TEST_MODE=step TEST_INTERVALS=1 TEST_SYMBOLS=BTCUSDT,ETHUSDT python coin_backfill.py
-
-      # 증분 반복: 5회, 10초 간격
-      TEST_MODE=loop TEST_INTERVALS=1 TEST_STEPS=5 TEST_SLEEP=10 python coin_backfill.py
-    """
     # 로깅
     logging.basicConfig(
         level=getattr(logging, "INFO", logging.INFO),

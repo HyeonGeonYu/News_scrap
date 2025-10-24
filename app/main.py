@@ -3,9 +3,7 @@ import sys
 import time
 import signal
 import logging
-import os
 from datetime import datetime
-from typing import Optional, List
 
 from pytz import timezone, utc
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -20,33 +18,10 @@ from storage import (
 )
 from redis_client import redis_client
 
-# ── coin_backfill(증분 폴링 유틸)에서 필요한 것들 가져오기
-from coin_backfill import (
-    IncrementalStore,
-    fetch_bybit_klines,
-    compute_fetch_window,
-    LIMIT_PER_CALL as CB_LIMIT_PER_CALL,
-    SKEW_MS_1M as CB_SKEW_MS_1M,
-    SKEW_MS_1D as CB_SKEW_MS_1D,
-)
-
-# ───────────────────────────────────────────────────────────
-# 설정
-# ───────────────────────────────────────────────────────────
-SYMBOLS = [s.strip().upper() for s in os.getenv("SYMBOLS", "BTCUSDT, ETHUSDT, XAUTUSDT").split(",") if s.strip()]
-KEEP_1M = int(os.getenv("KEEP_1M", os.getenv("KEEP", "10080")))
-KEEP_1D = int(os.getenv("KEEP_1D", os.getenv("KEEP", "1000")))
-
-LIMIT_PER_CALL = CB_LIMIT_PER_CALL
-SKEW_MS_1M = CB_SKEW_MS_1M
-SKEW_MS_1D = CB_SKEW_MS_1D
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 SEOUL = timezone("Asia/Seoul")
 
-# 전역 스토어(프로세스 생명주기 동안 유지 → 증분 운영)
-store = IncrementalStore(keep_map={"1": KEEP_1M, "D": KEEP_1D})
 
 # Redis 클라이언트 이름(운영 트레이싱 편의)
 try:
@@ -107,67 +82,7 @@ def scheduled_store(run_all: bool = False):
     except Exception as e:
         log.exception("❌ scheduled_store 실행 중 예외: %s", e)
 
-# ───────────────────────────────────────────────────────────
-# 증분 kline 저장 (매 분 / 매일)
-# ───────────────────────────────────────────────────────────
-def run_klines_minutely():
-    if not SYMBOLS:
-        log.warning("⏭️ SYMBOLS 비어 있음. 1m kline 작업 스킵")
-        return
-    t0 = time.perf_counter()
-    try:
-        now_ms = int(time.time() * 1000) + SKEW_MS_1M
-        keep_for = store.keep_for("1")
 
-        for sym in SYMBOLS:
-            last_ts = store.last_ts("1", sym)
-            start_ms, end_ms = compute_fetch_window(
-                last_ts, "1", now_ms, keep_for, exclude_open=True
-            )
-            if start_ms is None:  # 가져올 것 없음
-                continue
-            bars = fetch_bybit_klines(sym, "1", start_ms, end_ms, limit=LIMIT_PER_CALL)
-            store.merge_increment("1", sym, bars)
-
-        store.flush_interval("1", SYMBOLS)
-        dt_ms = (time.perf_counter() - t0) * 1000
-        log.info("✅ 1m closed-only incremental (symbols=%d, keep=%d) %.1f ms",
-                 len(SYMBOLS), keep_for, dt_ms)
-    except Exception:
-        log.exception("❌ 1m kline incremental error")
-
-
-def run_klines_daily():
-    if not SYMBOLS:
-        log.warning("⏭️ SYMBOLS 비어 있음. 1D kline 작업 스킵")
-        return
-    t0 = time.perf_counter()
-    try:
-        now_ms = int(time.time() * 1000) + SKEW_MS_1D
-        keep_for = store.keep_for("D")
-
-        for sym in SYMBOLS:
-            last_ts = store.last_ts("D", sym)
-            start_ms, end_ms = compute_fetch_window(
-                last_ts, "D", now_ms, keep_for, exclude_open=True
-            )
-            if start_ms is None:
-                continue
-            bars = fetch_bybit_klines(sym, "D", start_ms, end_ms, limit=LIMIT_PER_CALL)
-            store.merge_increment("D", sym, bars)
-
-        store.flush_interval("D", SYMBOLS)
-        dt_ms = (time.perf_counter() - t0) * 1000
-        log.info("✅ 1D closed-only incremental (symbols=%d, keep=%d) %.1f ms",
-                 len(SYMBOLS), keep_for, dt_ms)
-    except Exception:
-        log.exception("❌ 1D kline incremental error")
-
-
-# ───────────────────────────────────────────────────────────
-# 스타트업 중복 실행 가드 + 초기 로드/백필(조건부 플러시)
-# ───────────────────────────────────────────────────────────
-# main.py 의 startup_runs() 전체를 다음으로 교체
 
 def startup_runs():
     """
@@ -184,14 +99,7 @@ def startup_runs():
     log.info("🚀 Startup run: scheduled_store(run_all=True) + FULL kline initialize (closed-only)")
     try:
         scheduled_store(run_all=True)
-
-        # 1분봉: 항상 풀 초기화 (닫힌 봉만)
-        store.full_initialize(SYMBOLS, "1", exclude_open=True)
-        log.info("🔄 Startup full-initialized 1m snapshot")
-
-        # 1일봉: 스케줄 임박/직후면 스킵, 아니면 풀 초기화
         if run_daily_now:
-            store.full_initialize(SYMBOLS, "D", exclude_open=True)
             log.info("🔄 Startup full-initialized 1D snapshot")
         else:
             log.info("⏭️ Startup에서 1D full init 스킵(스케줄 임박/직후)")
@@ -199,28 +107,11 @@ def startup_runs():
         log.exception("❌ Startup run 실패")
 
 
-def _load_or_backfill_with_dirty_flush(interval: str) -> bool:
-    """
-    store.load_or_backfill 호출 전후 last_ts를 비교해 변화가 있으면 플러시.
-    (최초 백필/KEEP 변경/데이터 불일치 등)
-    """
-    before = {s: store.last_ts(interval, s) for s in SYMBOLS}
-    store.load_or_backfill(SYMBOLS, interval)
-    after = {s: store.last_ts(interval, s) for s in SYMBOLS}
-    changed = any(before.get(s) != after.get(s) for s in SYMBOLS)
-    if changed:
-        store.flush_interval(interval, SYMBOLS)
-    return changed
-
-# ───────────────────────────────────────────────────────────
-# 엔트리 포인트
-# ───────────────────────────────────────────────────────────
 def main():
     executors = {"default": ThreadPoolExecutor(5)}
     job_defaults = {"coalesce": True, "max_instances": 1, "misfire_grace_time": 300}
     scheduler = BackgroundScheduler(timezone=SEOUL, executors=executors, job_defaults=job_defaults)
 
-    # 매시 정각
     scheduler.add_job(
         scheduled_store,
         CronTrigger(minute="0", timezone=SEOUL),
@@ -228,23 +119,6 @@ def main():
         replace_existing=True,
     )
 
-    # 1분봉: 매분 6초 (거래소 반영 지연 대비)
-    scheduler.add_job(
-        run_klines_minutely,
-        CronTrigger(second="6", minute="*", timezone=SEOUL),
-        id="kline_minutely",
-        replace_existing=True,
-    )
-
-    # 1일봉: KST 09:01 (UTC 00:01 ≈ 일봉 경계 직후)
-    scheduler.add_job(
-        run_klines_daily,
-        CronTrigger(hour="9", minute="1", timezone=SEOUL),
-        id="kline_daily",
-        replace_existing=True,
-    )
-
-    # ── 기동 직후 1회(중복 가드 포함)
     startup_runs()
 
     scheduler.start()
