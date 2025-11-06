@@ -55,17 +55,49 @@ def get_transcript_text(video_id):
 
         # 더보기 버튼 클릭
         try:
-            page.click("tp-yt-paper-button#expand")
-        except:
+            page.click("tp-yt-paper-button#expand", timeout=3000)
+            print("✅ 더보기 버튼 클릭 성공")
+        except Exception:
             print("⚠️ 더보기 버튼 클릭 실패(이미 열려있을 수도 있음)")
 
         try:
-            page.click("button:has(span:text('스크립트 표시'))")
-            print("✅ 스크립트 버튼 클릭 성공")
-        except:
-            print("⚠️ 스크립트 버튼 클릭 실패(스크립트 버튼이 없을 수 있음)")
+            page.wait_for_selector("button[aria-label='스크립트 표시']", timeout=5000)
+            page.locator("button[aria-label='스크립트 표시']").first.click()
+            print("✅ '스크립트 표시' 버튼 클릭 성공")
+            page.wait_for_timeout(1000)
+        except Exception:
+            print("⚠️ '스크립트 표시' 버튼이 없거나 클릭 실패 (이미 열림일 수 있음)")
+
+        try:
+            # 챕터 탭이 있는지 확인
+            chapter_tabs = page.locator("button[role='tab'][aria-label='챕터']")
+            if chapter_tabs.count() > 0:
+                # 챕터 탭 클릭
+                page.wait_for_selector("button[role='tab'][aria-label='챕터']", timeout=5000)
+                chapter_tabs.first.click()
+                print("✅ 챕터 탭 클릭 성공")
+                page.wait_for_timeout(800)
+
+                # 스크립트 탭 클릭
+                page.wait_for_selector("button[role='tab'][aria-label='스크립트']", timeout=8000)
+                page.locator("button[role='tab'][aria-label='스크립트']").click()
+                print("✅ 스크립트 탭 클릭 성공")
+                page.wait_for_timeout(1000)
+            else:
+                print("ℹ️ 챕터 탭 없음 — 기본 스크립트 탭 활성 상태로 간주")
+
+            # 스크립트 내용 로딩 대기 (챕터 탭 유무와 무관하게)
+            page.wait_for_selector(
+                "ytd-transcript-segment-renderer, yt-formatted-string.segment-text",
+                state="attached",
+                timeout=15000
+            )
+            print("✅ 스크립트 패널 로딩 완료")
+
+        except Exception as e:
+            print(f"⚠️ 스크립트/챕터 탭 처리 실패: {e}")
             browser.close()
-            return None  # 버튼이 없으면 빈 문자열 반환
+            return None
 
         # 자막 텍스트 추출
         page.wait_for_selector("yt-formatted-string.segment-text")

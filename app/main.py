@@ -1,4 +1,3 @@
-# main.py
 import sys
 import time
 import signal
@@ -39,7 +38,7 @@ def scheduled_store(run_all: bool = False):
         now = datetime.now(SEOUL)
 
         # 유튜브: 11~15시
-        if run_all or (11 <= now.hour < 15):
+        if run_all or (11 <= now.hour < 22):
             log.info("⏰ YouTube 데이터 저장 (%s)", now.strftime("%Y-%m-%d %H:%M"))
             youtube_result = fetch_and_store_youtube_data()
             log.info(str(youtube_result))
@@ -85,12 +84,6 @@ def scheduled_store(run_all: bool = False):
 
 
 def startup_runs():
-    """
-    기동 직후 1회 실행:
-      - YouTube/차트/휴일 저장은 그대로
-      - K라인: 무조건 풀 초기화(full_initialize)로 '닫힌 봉' 기준 KEEP개를 채워서 즉시 플러시
-      - 일봉은 스케줄 임박/직후(±5분)면 초기화 스킵
-    """
     now = datetime.now(SEOUL)
     scheduled_daily_min = 9 * 60 + 1  # 09:01 KST
     cur_min = now.hour * 60 + now.minute
