@@ -1,5 +1,5 @@
 import time
-from pykrx import stock
+from datetime import datetime, UTC
 import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv
@@ -144,12 +144,6 @@ def fetch_stock_or_index_prices(symbol,token,category="index", source="domestic"
                 break
         data = {'output2':all_data}
 
-        start_str = start_date.strftime("%Y%m%d")
-        end_str = end_date.strftime("%Y%m%d")
-
-        market_cap_df = stock.get_market_cap_by_date(start_str, end_str, symbol)
-        shorting_data_df = stock.get_shorting_status_by_date(start_str, end_str, symbol)
-        market_caps = market_cap_df["시가총액"].tolist()  # 날짜별 시가총액
     elif source == "dmr":
         # 국내 주식/지수의 경우
         url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice"
@@ -310,21 +304,14 @@ def fetch_stock_or_index_prices(symbol,token,category="index", source="domestic"
         data_filtered = data.get('output2', [])  # 오류나 데이터가 없을 경우 기본 빈 리스트
 
     result = []
-    last_short_balance_amount = 0  # 첫 번째 기본값
     for i, row in enumerate(data_filtered):
         if source =="domestic":
-            date_key = pd.to_datetime(row["stck_bsop_date"], format="%Y%m%d")
-            match_val = shorting_data_df.loc[shorting_data_df.index == date_key, "잔고금액"].values
-            if match_val.size > 0:
-                last_short_balance_amount = match_val[0]
-            market_cap = market_caps[i]
-            short_ratio = (last_short_balance_amount / market_cap) * 100 if market_cap > 0 else 0
             result.append(process_row_data(row, {
                 "open": "stck_oprc",
                 "high": "stck_hgpr",
                 "low": "stck_lwpr",
                 "close": "stck_clpr",
-            }, extra_fields={"short_ratio": round(short_ratio, 2)}))
+            }))
 
         elif source == "dmr":
             result.append(process_row_data(row, {
@@ -357,13 +344,6 @@ def fetch_stock_or_index_prices(symbol,token,category="index", source="domestic"
                 "close": close,
                 "volume": safe_int(row.get("acml_vol", 0))
             })
-    if source == "domestic":
-        if len(result) >= 4:
-            # Get the value of the 4th last short_ratio
-            last_valid_short_ratio = result[-4]["short_ratio"]
-            # Update the last 3 entries to have the same short_ratio as the 4th last one
-            for i in range(1, 4):
-                result[-i]["short_ratio"] = last_valid_short_ratio
     return result
 def safe_int(val):
     try:
@@ -371,7 +351,7 @@ def safe_int(val):
     except (ValueError, TypeError):
         return 0
 def fetch_stock_info(symbol, token, category,source="krx", day_num=200, ma_period=100):
-    processed_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    processed_time = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
 
         data = fetch_stock_or_index_prices(symbol, token, category=category, source=source)
@@ -395,7 +375,7 @@ def fetch_stock_info(symbol, token, category,source="krx", day_num=200, ma_perio
 # 각 지표들의 평균 계산 (있는 경우에만)
 
 def calculate_dxy_from_currency_data(token, ma_period=100) -> list:
-    processed_time = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    processed_time = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     required = ["usd_eur", "usd_jpy", "usd_gbp", "usd_cad", "usd_sek", "usd_chf"]
     os_CURRENCY_SYMBOLS = {
         "usd_jpy": "FX@JPY",  # 일본 엔
