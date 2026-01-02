@@ -144,12 +144,12 @@ def fetch_stock_or_index_prices(symbol,token,category="index", source="domestic"
                 break
         data = {'output2':all_data}
 
-        market_cap_df = stock.get_market_cap_by_date(start_date, end_date, symbol)
-        market_caps = market_cap_df["시가총액"].tolist()  # 날짜별 시가총액
+        start_str = start_date.strftime("%Y%m%d")
+        end_str = end_date.strftime("%Y%m%d")
 
-        # 공매도 상태 데이터를 가져오기
-        shorting_data_df = stock.get_shorting_status_by_date(start_date, end_date,
-                                                             symbol)
+        market_cap_df = stock.get_market_cap_by_date(start_str, end_str, symbol)
+        shorting_data_df = stock.get_shorting_status_by_date(start_str, end_str, symbol)
+        market_caps = market_cap_df["시가총액"].tolist()  # 날짜별 시가총액
     elif source == "dmr":
         # 국내 주식/지수의 경우
         url = "https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice"

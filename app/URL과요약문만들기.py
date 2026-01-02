@@ -45,16 +45,20 @@ def get_transcript_text(video_id, headless=True):
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
     with sync_playwright() as p:
-        # ✅ 로그인 유지되는 프로필(pw_profile) + Edge로 실행
-        context = p.chromium.launch_persistent_context(
-            user_data_dir=BOT_PROFILE_DIR,
+        browser = p.chromium.launch(
             headless=headless,
-            channel="msedge",  # ✅ 여기
+            channel="msedge",  # Edge 엔진 그대로 쓰고 싶으면 유지
             args=[
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
                 "--disable-blink-features=AutomationControlled",
             ],
+        )
+
+        context = browser.new_context(
+            viewport={"width": 1280, "height": 720},
+            locale="ko-KR",
+            timezone_id="Asia/Seoul",
         )
 
         # persistent context는 new_context()가 아니라 그냥 page 열면 됨
