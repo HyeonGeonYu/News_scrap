@@ -49,7 +49,7 @@ def scheduled_store(run_all: bool = False):
         stored_result = fetch_and_store_chart_data()
         log.info(stored_result)
 
-        # 휴일: 월요일
+        # 휴r일: 월요일
         if run_all or now.weekday() == 0:
             log.info("📅 휴일 데이터 저장 체크...")
             try:
