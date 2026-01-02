@@ -12,7 +12,7 @@ from openai import OpenAI
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # .env에서 불러오기
-OPENAI_API_KEY = os.getenv("OPENAI_API_KE")  # .env에서 불러오기
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # .env에서 불러오기
 
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -40,18 +40,32 @@ def get_video_details(video_id):
     response = requests.get(url, params=params)
     items = response.json().get("items")
     return items[0] if items else None
-def get_transcript_text(video_id):
+def get_transcript_text(video_id, headless=True):
     if sys.platform.startswith('win'):
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox"]
+        # ✅ 로그인 유지되는 프로필(pw_profile) + Edge로 실행
+        context = p.chromium.launch_persistent_context(
+            user_data_dir=BOT_PROFILE_DIR,
+            headless=headless,
+            channel="msedge",  # ✅ 여기
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-blink-features=AutomationControlled",
+            ],
         )
-        video_url = "https://www.youtube.com/watch?v="+video_id
-        page = browser.new_page()
-        page.goto(video_url)
+
+        # persistent context는 new_context()가 아니라 그냥 page 열면 됨
+        page = context.new_page()
+
+        # (선택) webdriver 숨김
+        context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+        video_url = "https://www.youtube.com/watch?v=" + video_id
+        page.goto(video_url, wait_until="domcontentloaded")
+        page.wait_for_timeout(1500)
 
         # 더보기 버튼 클릭
         try:
@@ -69,24 +83,18 @@ def get_transcript_text(video_id):
             print("⚠️ '스크립트 표시' 버튼이 없거나 클릭 실패 (이미 열림일 수 있음)")
 
         try:
-            # 챕터 탭이 있는지 확인
             chapter_tabs = page.locator("button[role='tab'][aria-label='챕터']")
             if chapter_tabs.count() > 0:
-                # 챕터 탭 클릭
-                page.wait_for_selector("button[role='tab'][aria-label='챕터']", timeout=5000)
                 chapter_tabs.first.click()
                 print("✅ 챕터 탭 클릭 성공")
                 page.wait_for_timeout(800)
 
-                # 스크립트 탭 클릭
-                page.wait_for_selector("button[role='tab'][aria-label='스크립트']", timeout=8000)
                 page.locator("button[role='tab'][aria-label='스크립트']").click()
                 print("✅ 스크립트 탭 클릭 성공")
                 page.wait_for_timeout(1000)
             else:
                 print("ℹ️ 챕터 탭 없음 — 기본 스크립트 탭 활성 상태로 간주")
 
-            # 스크립트 내용 로딩 대기 (챕터 탭 유무와 무관하게)
             page.wait_for_selector(
                 "ytd-transcript-segment-renderer, yt-formatted-string.segment-text",
                 state="attached",
@@ -96,18 +104,23 @@ def get_transcript_text(video_id):
 
         except Exception as e:
             print(f"⚠️ 스크립트/챕터 탭 처리 실패: {e}")
-            browser.close()
+            context.close()
             return None
 
         # 자막 텍스트 추출
-        page.wait_for_selector("yt-formatted-string.segment-text")
+        try:
+            page.wait_for_selector("yt-formatted-string.segment-text", timeout=8000)
+        except Exception:
+            pass
+
         segments = page.query_selector_all("yt-formatted-string.segment-text")
         transcript_texts = [seg.inner_text().strip() for seg in segments]
-        full_transcript = "\n".join(transcript_texts)
+        full_transcript = "\n".join([t for t in transcript_texts if t])
 
-        browser.close()
-
+        context.close()
         return full_transcript
+
+
 
 def find_best_video(data, keyword, from_playlist=False):
     for item in data.get("items", []):
@@ -240,12 +253,8 @@ def find_similar_video_title_id(data, keyword, similarity_threshold=0.9,from_pla
                         continue
     return None  # 찾는 영상이 없을 경우
 
-def get_latest_video_data(channel):
-    # 채널id기준 viedo_id
+def get_latest_video_data(channel, headless=True):
     channel_id = get_channel_id(channel["channel_handle"])
-    if not channel_id:
-        print("❌ 채널 ID를 찾을 수 없습니다.")
-        return None
     if not channel_id:
         print("❌ 채널 ID를 찾을 수 없습니다.")
         return None
@@ -256,7 +265,6 @@ def get_latest_video_data(channel):
     latest = {"time": None, "data": None}
 
     for i, keyword in enumerate(keywords):
-        # 해당 키워드에 맞는 플레이리스트 ID 사용
         playlist_id = playlist_ids[i] if i < len(playlist_ids) else playlist_ids[-1]
         for video_id in search_video_ids(channel_id, playlist_id, keyword):
             video = get_video_details(video_id)
@@ -264,7 +272,8 @@ def get_latest_video_data(channel):
                 continue
             pb_time = datetime.strptime(video["snippet"]["publishedAt"], "%Y-%m-%dT%H:%M:%SZ")
             if not latest["time"] or pb_time > latest["time"]:
-                update_dict= {"time": pb_time,
+                latest.update({
+                    "time": pb_time,
                     "video_id": video_id,
                     "data": {
                         "url": f"https://www.youtube.com/watch?v={video_id}",
@@ -273,23 +282,29 @@ def get_latest_video_data(channel):
                         "summary_target": channel["save_fields"],
                         "summary_content": video["snippet"]["description"] if channel["save_fields"] == "description" else None
                     }
-                }
-                latest.update(update_dict)
-    # 최신 영상 확정 후 자막 가져오기 (필요한 경우에만)
+                })
+
     if latest["data"] and channel["save_fields"] == "subtitle":
-        transcript = get_transcript_text(latest["video_id"])
+        transcript = get_transcript_text(latest["video_id"], headless=headless)
         latest["data"]["summary_content"] = transcript
+
     return latest["data"]
 
 
-# ✅ 테스트 실행
+
 if __name__ == "__main__":
     from app.test_config import channels
+
+    SHOW_CHROME = True
+
     results = {}
     for channel in channels:
         country = channel["country"]
-        video_data = get_latest_video_data(channel)
+
+        video_data = get_latest_video_data(channel, headless=not SHOW_CHROME)
+
         summary_result = summarize_content(video_data['summary_content'])
         video_data['summary_result'] = summary_result
-        results[channel["country"]] = video_data
-    print(results)  # 최신 영상 링크 출력
+        results[country] = video_data
+
+    print(results)
