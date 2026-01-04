@@ -44,7 +44,6 @@ def fetch_and_store_youtube_data():
                     processed_date = convert_to_kst(processed_time).strftime("%Y-%m-%d")
                     if processed_date == today_date:
                         if existing_data.get('summary_content') is None:
-
                             # 요약 다시 생성
                             print(f"✏️ {country} — summary_content 없음, 요약을 생성합니다.")
                             url = existing_data.get('url')

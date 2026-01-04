@@ -40,6 +40,8 @@ def get_video_details(video_id):
     return items[0] if items else None
 
 def get_transcript_text(video_id, headless=True):
+    return "개발중"
+
     # ✅ Copy-as-fetch 끝 세미콜론 제거(도커/로컬 공통으로 안전)
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -353,10 +355,8 @@ def get_latest_video_data(channel, headless=True):
 
     if latest["data"] and channel["save_fields"] == "subtitle":
         # 지금 자막 수집은 문제있음 구현이 어려움
-        # transcript = get_transcript_text(latest["video_id"], headless=headless)
-        # latest["data"]["summary_content"] = transcript
-
-        latest["data"]["summary_content"] = None
+        transcript = get_transcript_text(latest["video_id"], headless=headless)
+        latest["data"]["summary_content"] = transcript
 
 
     return latest["data"]
