@@ -3,12 +3,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 import requests
 import os
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PWTimeout
 import sys
 import asyncio
+from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 import isodate
 from openai import OpenAI
-
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # .env에서 불러오기
@@ -17,7 +17,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # .env에서 불러오기
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 from datetime import datetime
-
 
 def get_channel_id(channel_handle):
     url = "https://www.googleapis.com/youtube/v3/channels"
@@ -29,7 +28,6 @@ def get_channel_id(channel_handle):
     response = requests.get(url, params=params)
     return response.json().get("items", [{}])[0].get("id")
 
-
 def get_video_details(video_id):
     url = "https://www.googleapis.com/youtube/v3/videos"
     params = {
@@ -40,35 +38,36 @@ def get_video_details(video_id):
     response = requests.get(url, params=params)
     items = response.json().get("items")
     return items[0] if items else None
-def get_transcript_text(video_id, headless=True):
-    if sys.platform.startswith('win'):
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
+def get_transcript_text(video_id, headless=True):
+    # ✅ Copy-as-fetch 끝 세미콜론 제거(도커/로컬 공통으로 안전)
     with sync_playwright() as p:
         browser = p.chromium.launch(
+            channel="msedge",  # 도커에 Edge를 설치/번들한 경우에만 OK
             headless=headless,
-            channel="msedge",  # Edge 엔진 그대로 쓰고 싶으면 유지
             args=[
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",  # ✅ 컨테이너에서 거의 필수
+                "--disable-dev-shm-usage",  # ✅ /dev/shm 부족 이슈 방지
+                "--disable-gpu",  # (선택) 리눅스 headless 안정화
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--disable-popup-blocking",
+                "--lang=ko-KR",
+                "--window-size=1280,720",
             ],
         )
-
         context = browser.new_context(
-            viewport={"width": 1280, "height": 720},
             locale="ko-KR",
             timezone_id="Asia/Seoul",
+            viewport={"width": 1280, "height": 720},
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
         )
 
         # persistent context는 new_context()가 아니라 그냥 page 열면 됨
         page = context.new_page()
 
-        # (선택) webdriver 숨김
-        context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-
         video_url = "https://www.youtube.com/watch?v=" + video_id
-        page.goto(video_url, wait_until="domcontentloaded")
+        page.goto(video_url, wait_until="domcontentloaded", timeout=60000)
         page.wait_for_timeout(1500)
 
         # 더보기 버튼 클릭
@@ -99,14 +98,18 @@ def get_transcript_text(video_id, headless=True):
             else:
                 print("ℹ️ 챕터 탭 없음 — 기본 스크립트 탭 활성 상태로 간주")
 
-            page.wait_for_selector(
-                "ytd-transcript-segment-renderer, yt-formatted-string.segment-text",
-                state="attached",
-                timeout=15000
-            )
+            page.wait_for_selector("yt-formatted-string.segment-text", timeout=10000)
             print("✅ 스크립트 패널 로딩 완료")
 
         except Exception as e:
+            try:
+                page.screenshot(path="/app/debug.png", full_page=True)
+                with open("/app/debug.html", "w", encoding="utf-8") as f:
+                    f.write(page.content())
+                print("🧩 DEBUG saved: /app/debug.png, /app/debug.html")
+            except Exception as dump_e:
+                print(f"🧩 DEBUG dump failed: {dump_e}")
+
             print(f"⚠️ 스크립트/챕터 탭 처리 실패: {e}")
             context.close()
             return None
@@ -123,6 +126,66 @@ def get_transcript_text(video_id, headless=True):
 
         context.close()
         return full_transcript
+
+def open_transcript_ui(page):
+    try:
+        page.click("tp-yt-paper-button#expand", timeout=3000)
+    except:
+        pass
+    try:
+        page.locator("button[aria-label='스크립트 표시']").first.click(timeout=5000)
+    except:
+        pass
+
+def capture_get_transcript_request(page, trigger_fn, timeout_ms=8000):
+    captured = {}
+
+    def handler(route, request):
+        if "/youtubei/v1/get_transcript" in request.url:
+            captured["url"] = request.url
+            captured["body"] = request.post_data
+            captured["headers"] = request.headers
+            route.continue_()
+        else:
+            route.continue_()
+
+    page.route("**/*", handler)
+
+    trigger_fn()  # 스크립트 표시 클릭
+
+    page.wait_for_timeout(timeout_ms)
+    page.unroute("**/*", handler)
+
+    return captured if "url" in captured else None
+
+def replay_get_transcript(page, captured):
+    headers = {
+        "content-type": "application/json",
+    }
+    resp = page.request.post(
+        captured["url"],
+        data=captured["body"],
+        headers=headers,
+    )
+    return resp
+
+def extract_text(j):
+    out = []
+    def walk(x):
+        if isinstance(x, dict):
+            if "simpleText" in x:
+                out.append(x["simpleText"])
+            if "runs" in x:
+                for r in x["runs"]:
+                    if "text" in r:
+                        out.append(r["text"])
+            for v in x.values():
+                walk(v)
+        elif isinstance(x, list):
+            for i in x:
+                walk(i)
+    walk(j)
+    return "\n".join(t.strip() for t in out if t.strip())
 
 
 
@@ -289,15 +352,19 @@ def get_latest_video_data(channel, headless=True):
                 })
 
     if latest["data"] and channel["save_fields"] == "subtitle":
-        transcript = get_transcript_text(latest["video_id"], headless=headless)
-        latest["data"]["summary_content"] = transcript
+        # 지금 자막 수집은 문제있음 구현이 어려움
+        # transcript = get_transcript_text(latest["video_id"], headless=headless)
+        # latest["data"]["summary_content"] = transcript
+
+        latest["data"]["summary_content"] = None
+
 
     return latest["data"]
 
 
 
 if __name__ == "__main__":
-    from app.test_config import channels
+    from test_config import channels
 
     SHOW_CHROME = True
 
