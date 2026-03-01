@@ -67,7 +67,7 @@ os_treasury_SYMBOLS = {
     "jp-t10" : "Y0207",
     "kr-t3" : "Y0101"
 }
-
+"""
 dmc_KR_STOCK_SYMBOLS = {
         "삼성전자": "005930",
         "한화오션": "042660",
@@ -77,6 +77,7 @@ dmc_KR_STOCK_SYMBOLS = {
 os_US_STOCK_SYMBOLS = {
     "tesla": "TSLA",  # 테슬라
 }
+"""
 
 yf_CURRENCY_SYMBOLS = {
     "dxy": "DX-Y.NYB",     # 한국 원
@@ -86,7 +87,7 @@ os_CURRENCY_SYMBOLS = {
     "usd_krw": "FX@KRW",     # 한국 원
     "usd_jpy": "FX@JPY",     # 일본 엔
     "usd_cny": "FX@CNY",     # 중국 위안
-    "usd_hkd": "FX@HKD",  # 중국 위안
+    "usd_hkd": "FX@HKD",     # 중국 위안
     "usd_eur": "FX@EUR",     # 유로 유로->달러임
     "usd_gbp": "FX@GBP",     # 영국 파운드 파운드->달러
     "usd_cad": "FX@CAD",     # 캐나다 달러
@@ -106,13 +107,12 @@ os_COMMODITY_SYMBOLS = {
 }
 
 ALL_SYMBOLS = {
-    "domestic": {"kr_stock":dmc_KR_STOCK_SYMBOLS,
-    },
+#    "domestic": {"kr_stock":dmc_KR_STOCK_SYMBOLS,},
     "overseas": {
         "index" : os_INDEX_SYMBOLS,
         "commodity" : os_COMMODITY_SYMBOLS,
         "currency" : os_CURRENCY_SYMBOLS,
-        "us_stock" : os_US_STOCK_SYMBOLS,
+#        "us_stock" : os_US_STOCK_SYMBOLS,
         "treasury" : os_treasury_SYMBOLS
     },
     "dmr": {"index":dmi_KR_STOCK_SYMBOLS,
