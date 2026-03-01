@@ -9,3 +9,4 @@ apscheduler
 redis
 tenacity
 websockets
+psycopg[binary]
