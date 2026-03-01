@@ -13,3 +13,6 @@ dist/
 build/
 .cache/
 app/.env
+
+*.py[cod]
+**/__pycache__/
