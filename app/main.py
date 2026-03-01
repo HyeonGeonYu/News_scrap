@@ -1,9 +1,10 @@
+# main.py
 import sys
 import time
 import signal
 import logging
 from datetime import datetime
-
+from jobs.news_weekly_upload import run_weekly_news_upload
 from pytz import timezone, utc
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -81,7 +82,14 @@ def scheduled_store(run_all: bool = False):
     except Exception as e:
         log.exception("❌ scheduled_store 실행 중 예외: %s", e)
 
-
+def scheduled_weekly_news_upload():
+    """매주 일요일 Redis -> Supabase 업로드"""
+    try:
+        log.info("🗓️ Weekly news upload -> Supabase 시작")
+        run_weekly_news_upload(n_days=10)  # ✅ TTL 10일이니까 10으로(권장)
+        log.info("✅ Weekly news upload 완료")
+    except Exception:
+        log.exception("❌ Weekly news upload 실패")
 
 def startup_runs():
     now = datetime.now(SEOUL)
@@ -109,6 +117,13 @@ def main():
         scheduled_store,
         CronTrigger(minute="0", timezone=SEOUL),
         id="scheduled_store",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        scheduled_weekly_news_upload,
+        CronTrigger(day_of_week="sun", hour=9, minute=1, timezone=SEOUL),
+        id="scheduled_weekly_news_upload",
         replace_existing=True,
     )
 

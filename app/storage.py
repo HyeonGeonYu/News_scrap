@@ -62,6 +62,7 @@ def fetch_and_store_youtube_data():
                             existing_data['summary_content'] = transcript
                             # Redis 덮어쓰기
                             redis_client.hset("youtube_data", country, json.dumps(existing_data))
+                            redis_client.hset("news:youtube_data", country, json.dumps(existing_data))  # ✅ 추가
                             print(f"🔔 {country} — 스크립트 추가 저장 완료")
                         if existing_data.get('summary_result') is None:
                             transcript = existing_data.get('summary_content')
@@ -72,6 +73,7 @@ def fetch_and_store_youtube_data():
                             existing_data['processed_time'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
                             # Redis 덮어쓰기
                             redis_client.hset("youtube_data", country, json.dumps(existing_data))
+                            redis_client.hset("news:youtube_data", country, json.dumps(existing_data))  # ✅ 추가
                             if summary_result == None:
                                 print(f"🔔 {country} — 요약 결과 추가되지 않음")
                             else:
@@ -109,6 +111,7 @@ def fetch_and_store_youtube_data():
 
             # ✅ Redis에 해당 국가만 저장 (덮어쓰기)
             redis_client.hset("youtube_data", country, json.dumps(video_data))
+            redis_client.hset("news:youtube_data", country, json.dumps(video_data))     # ✅ 추가
             print(f"🔔 {country} 데이터 저장됨: {video_data['url']}")
             updated = True
 
@@ -178,14 +181,14 @@ def fetch_and_store_holiday_data():
     except Exception as e:
         results.append(f"❌ 전체 공휴일 데이터 처리 중 오류 발생: {str(e)}")
 
-def save_daily_data():
+def save_daily_data(keep_days: int = 10):
     youtube_data = redis_client.hgetall("youtube_data")
 
     kst = timezone('Asia/Seoul')
     now_kst = datetime.now(kst)
 
-    today_kst = datetime.now(kst).date()  # 한국 기준 오늘
-    date_str = now_kst.strftime("%Y%m%d")  # Redis 필드 키용 (예: 20250615)
+    today_kst = now_kst.date()             # 한국 기준 오늘
+    date_str = now_kst.strftime("%Y%m%d")  # 예: 20250615
 
     filtered_data = {}
     for country_bytes, json_bytes in youtube_data.items():
@@ -194,22 +197,28 @@ def save_daily_data():
             json_str = json_bytes.decode()
             data = json.loads(json_str)
 
-            # processed_time 가져오기 (UTC로 되어있다고 가정)
+            # processed_time (UTC) -> KST
             processed_time_utc = datetime.strptime(data['processed_time'], "%Y-%m-%dT%H:%M:%SZ")
             processed_time_utc = utc.localize(processed_time_utc)
-
-            # UTC → 한국 시간
             processed_time_kst = processed_time_utc.astimezone(kst)
 
-            # 오늘 저장된 것만 필터링
             if processed_time_kst.date() == today_kst:
                 filtered_data[country] = data
 
         except (KeyError, ValueError, json.JSONDecodeError):
-            print(f"⚠️ {country} 데이터 처리 실패")
+            print(f"⚠️ {country_bytes} 데이터 처리 실패")
+
     save_dict = {"youtube_data": filtered_data}
-    redis_client.hset("daily_saved_data", date_str, json.dumps(save_dict, ensure_ascii=False))
-    print(f"✅ {len(filtered_data)}개 저장 완료 → Redis key: daily_saved_data, field: {date_str}")
+    payload = json.dumps(save_dict, ensure_ascii=False)
+
+    # ✅ (기존 호환 유지) Hash에 저장
+    redis_client.hset("daily_saved_data", date_str, payload)
+    print(f"✅ {len(filtered_data)}개 저장 완료 → Redis hash: daily_saved_data, field: {date_str}")
+
+    # ✅ (신규 추가) TTL key에도 저장 (10일 자동 만료)
+    new_key = f"news:daily_saved_data:{date_str}"
+    redis_client.set(new_key, payload, ex=keep_days * 86400)
+    print(f"✅ TTL 저장 완료 → Redis key: {new_key} (TTL {keep_days}일)")
 
 
 if __name__ == "__main__":
