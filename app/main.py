@@ -98,13 +98,17 @@ def scheduled_store(run_all: bool = False):
 
 def startup_runs():
     now = datetime.now(SEOUL)
-    scheduled_daily_min = 9 * 60 + 1  # 09:01 KST
+    scheduled_daily_min = 9 * 60 + 1
     cur_min = now.hour * 60 + now.minute
-    run_daily_now = abs(cur_min - scheduled_daily_min) > 5  # ±5분 이내면 스킵
+    run_daily_now = abs(cur_min - scheduled_daily_min) > 5
 
     log.info("🚀 Startup run: scheduled_store(run_all=True) + FULL kline initialize (closed-only)")
     try:
         scheduled_store(run_all=True)
+
+        # ✅ 테스트용: 시작 시 Supabase persist도 1회 실행
+        scheduled_persist_supabase()
+
         if run_daily_now:
             log.info("🔄 Startup full-initialized 1D snapshot")
         else:
