@@ -10,3 +10,4 @@ redis
 tenacity
 websockets
 psycopg[binary]
+supabase

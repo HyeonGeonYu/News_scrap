@@ -8,6 +8,7 @@ from pytz import timezone, utc
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
+from persist import persist_today_data
 
 from storage import (
     fetch_and_store_chart_data,
@@ -28,6 +29,20 @@ try:
     log.info("Redis client name set to 'svc:main'")
 except Exception:
     log.warning("client_setname failed", exc_info=True)
+
+# ───────────────────────────────────────────────────────────
+# Supabase 장기 저장 루틴
+# ───────────────────────────────────────────────────────────
+def scheduled_persist_supabase():
+    """
+    Redis에 쌓인 완료된 하루 데이터를 Supabase에 저장.
+    persist_today_data 내부에서 직전 완료된 06:50~06:50 window를 계산함.
+    """
+    try:
+        log.info("📦 Supabase persist 스케줄 실행")
+        persist_today_data(dry_run=False)
+    except Exception as e:
+        log.exception("❌ Supabase persist 실행 중 예외: %s", e)
 
 # ───────────────────────────────────────────────────────────
 # 기존 저장 루틴
@@ -109,6 +124,14 @@ def main():
         id="scheduled_store",
         replace_existing=True,
     )
+
+    scheduler.add_job(
+        scheduled_persist_supabase,
+        CronTrigger(hour=6, minute=55, timezone=SEOUL),
+        id="persist_supabase",
+        replace_existing=True,
+    )
+
 
     startup_runs()
 
