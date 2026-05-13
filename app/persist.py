@@ -180,6 +180,28 @@ def calc_asset_equity(asset_data, close_prices):
 
     return wallet + unrealized, unrealized
 
+def load_lots_by_entry_signal_id():
+    pattern = "trading:agent:CopyZannavi:u7c9f14d2a1:BYBIT:lot:*"
+    out = {}
+
+    try:
+        for key in redis_client.scan_iter(match=pattern, count=500):
+            if redis_client.type(key) != b"hash":
+                continue
+
+            lot = decode_hash(redis_client.hgetall(key))
+            entry_signal_id = lot.get("entry_signal_id")
+            if not entry_signal_id:
+                continue
+
+            out[str(entry_signal_id)] = lot
+
+    except Exception as e:
+        log.warning("⚠️ lot keys 읽기 실패: %s", e)
+
+    log.info("✅ lots loaded by entry_signal_id count=%d", len(out))
+    return out
+
 
 def get_latest_thresholds_by_symbol(symbols, namespace="bybit", search_back=500):
     """
@@ -246,6 +268,9 @@ def get_latest_thresholds_by_symbol(symbols, namespace="bybit", search_back=500)
 
     return found
 
+
+
+
 def persist_today_data(dry_run=False):
     supabase = None if dry_run else get_supabase()
 
@@ -276,6 +301,18 @@ def persist_today_data(dry_run=False):
         except Exception:
             return False
 
+    def is_today_trade_record(r):
+        ts_ms = r.get("ts_ms") or r.get("timestamp_ms") or r.get("saved_ts_ms")
+        if not ts_ms:
+            return False
+
+        try:
+            ts_ms = int(float(ts_ms))
+            dt = datetime.fromtimestamp(ts_ms / 1000, tz=SEOUL)
+            return day_start <= dt <= day_end
+        except Exception:
+            return False
+
     log.info("📦 Supabase persist 시작 day=%s dry_run=%s", day, dry_run)
 
     # 1) 오늘 수집 데이터
@@ -287,35 +324,34 @@ def persist_today_data(dry_run=False):
 
     log.info("news_data exists=%s", bool(news_data))
 
-    # 2) 매매 기록 signals
-    signal_key = "trading:bybit:signals"
-    signals_raw = redis_client.xrevrange(
-        signal_key,
+    # 2) 매매 실행 기록 trade_records
+    trade_record_key = "trading:agent:CopyZannavi:u7c9f14d2a1:BYBIT:trade_records"
+    trade_records_raw = redis_client.xrevrange(
+        trade_record_key,
         max="+",
         min="-",
-        count=500
+        count=1000,
     )
 
-    signals = []
+    trade_records = []
 
-    for msg_id, fields in signals_raw:
+    for msg_id, fields in trade_records_raw:
         item = decode_hash(fields)
 
-        # stream id도 같이 넣어주는게 좋음
         item["_id"] = (
             msg_id.decode() if isinstance(msg_id, (bytes, bytearray)) else str(msg_id)
         )
 
-        signals.append(item)
+        trade_records.append(item)
 
-    before_count = len(signals)
-    signals = [s for s in signals if is_today_signal(s)]
-    log.info("%s before_count=%d today_count=%d", signal_key, before_count, len(signals))
+    before_count = len(trade_records)
+    trade_records = [r for r in trade_records if is_today_trade_record(r)]
+    log.info("%s before_count=%d today_count=%d", trade_record_key, before_count, len(trade_records))
 
     signal_symbols = sorted({
-        str(s.get("symbol", "")).upper()
-        for s in signals
-        if isinstance(s, dict) and s.get("symbol")
+        str(r.get("symbol", "")).upper()
+        for r in trade_records
+        if isinstance(r, dict) and r.get("symbol")
     })
 
     # 3) 현재 자산
@@ -337,7 +373,7 @@ def persist_today_data(dry_run=False):
     if dry_run:
         log.info("✅ dry-run 완료")
         log.info("news sample=%s", news_data)
-        log.info("signals sample=%s", signals[:2])
+        log.info("trade_records sample=%s", trade_records[:2])
         log.info("asset sample=%s", asset_data)
         return
 
@@ -350,25 +386,31 @@ def persist_today_data(dry_run=False):
 
     log.info("✅ daily_collections 저장 완료")
 
-    # 2) signals 저장
+    # 2) trade_records 저장
     trade_rows = []
 
-    for idx, s in enumerate(signals):
-        if not isinstance(s, dict):
-            s = {"raw": s}
+    for idx, r in enumerate(trade_records):
+        if not isinstance(r, dict):
+            r = {"raw": r}
 
-        signal_id = s.get("signal_id") or s.get("_id")
+        signal_id = r.get("signal_id") or r.get("exit_signal_id") or r.get("entry_signal_id") or r.get("_id")
+        row_id = str(signal_id or r.get("_id"))
+
+        raw_json = dict(r)
 
         trade_rows.append({
-            "id": str(signal_id),
+            "id": row_id,
             "day": day,
-            "symbol": s.get("symbol"),
-            "side": s.get("side"),
-            "kind": s.get("kind"),
-            "price": s.get("price"),
-            "qty": s.get("qty"),
-            "pnl": s.get("pnl") or s.get("pnl_pct"),
-            "raw_json": s,
+            "symbol": r.get("symbol"),
+            "side": r.get("side"),
+            "kind": r.get("kind"),
+            "price": r.get("price") or r.get("exit_price") or r.get("entry_price"),
+            "qty": r.get("qty"),
+
+            # ✅ 이제 pnl은 USDT 기준
+            "pnl": r.get("pnl_usdt"),
+
+            "raw_json": raw_json,
         })
 
     if trade_rows:
