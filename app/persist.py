@@ -1,13 +1,14 @@
 # persist.py
 import os
 import json
-from datetime import datetime, time
 import logging
+from datetime import datetime, time, date, timedelta
+
+import requests
 from pytz import timezone
 from supabase import create_client
-from datetime import timedelta
+
 from redis_client import redis_client
-import requests
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -37,6 +38,62 @@ def decode_hash(h):
     return out
 
 
+def normalize_reasons(value):
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except Exception:
+            value = [value]
+
+    if isinstance(value, list):
+        return value
+
+    return []
+
+
+def load_signals_by_signal_id(namespace="bybit", search_back=5000):
+    """
+    Redis 원본 signal stream에서 signal_id 기준으로 reasons_json을 찾기 위한 맵.
+    trade_records ENTRY에 reasons_json이 빠졌을 때 보강용.
+    """
+    stream_key = f"trading:{namespace}:signals"
+    out = {}
+
+    try:
+        rows = redis_client.xrevrange(
+            stream_key,
+            max="+",
+            min="-",
+            count=search_back,
+        )
+    except Exception as e:
+        log.warning("⚠️ signals stream 읽기 실패 key=%s err=%s", stream_key, e)
+        return out
+
+    for msg_id, fields in rows:
+        item = decode_hash(fields)
+
+        sid = (
+            item.get("signal_id")
+            or item.get("id")
+            or item.get("_id")
+        )
+
+        if not sid:
+            continue
+
+        sid = str(sid)
+
+        if sid not in out:
+            item["_stream_id"] = (
+                msg_id.decode() if isinstance(msg_id, (bytes, bytearray)) else str(msg_id)
+            )
+            out[sid] = item
+
+    log.info("✅ signals loaded by signal_id count=%d key=%s", len(out), stream_key)
+    return out
+
+
 def get_supabase():
     url = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_SECRET_KEY") or os.getenv("SUPABASE_KEY")
@@ -46,11 +103,13 @@ def get_supabase():
 
     return create_client(url, key)
 
+
 def extract_position_symbols(asset_data):
     if not isinstance(asset_data, dict):
         return []
 
     symbols = []
+
     for key, value in asset_data.items():
         if not str(key).startswith("positions."):
             continue
@@ -59,6 +118,7 @@ def extract_position_symbols(asset_data):
         pos = value if isinstance(value, dict) else {}
 
         has_position = False
+
         for side in ("LONG", "SHORT"):
             side_pos = pos.get(side)
             if side_pos and float(side_pos.get("qty") or 0) != 0:
@@ -77,7 +137,7 @@ def fetch_bybit_last_close(symbol, end_dt):
     end_dt는 timezone-aware KST datetime.
     """
     end_ms = int(end_dt.timestamp() * 1000)
-    start_ms = end_ms - 2 * 60 * 60 * 1000  # 마지막 2시간만 조회
+    start_ms = end_ms - 2 * 60 * 60 * 1000
 
     url = "https://api.bybit.com/v5/market/kline"
     params = {
@@ -103,6 +163,7 @@ def fetch_bybit_last_close(symbol, end_dt):
         try:
             ts_ms = int(row[0])
             close = float(row[4])
+
             if ts_ms < end_ms:
                 parsed.append((ts_ms, close))
         except Exception:
@@ -122,11 +183,13 @@ def fetch_close_prices_for_asset(asset_data, day_end):
     for symbol in symbols:
         try:
             close = fetch_bybit_last_close(symbol, day_end)
+
             if close is not None:
                 out[symbol] = close
                 log.info("✅ close price %s=%s", symbol, close)
             else:
                 log.warning("⚠️ close price 없음: %s", symbol)
+
         except Exception as e:
             log.warning("⚠️ close price 조회 실패 %s: %s", symbol, e)
 
@@ -138,6 +201,7 @@ def calc_asset_equity(asset_data, close_prices):
         return None, None
 
     wallet = asset_data.get("wallet.USDT")
+
     try:
         wallet = float(wallet)
     except Exception:
@@ -162,10 +226,12 @@ def calc_asset_equity(asset_data, close_prices):
 
         for side in ("LONG", "SHORT"):
             side_pos = pos.get(side)
+
             if not side_pos:
                 continue
 
             entries = side_pos.get("entries") or []
+
             for e in entries:
                 try:
                     qty = float(e.get("qty") or 0)
@@ -180,6 +246,7 @@ def calc_asset_equity(asset_data, close_prices):
 
     return wallet + unrealized, unrealized
 
+
 def load_lots_by_entry_signal_id():
     pattern = "trading:agent:CopyZannavi:u7c9f14d2a1:BYBIT:lot:*"
     out = {}
@@ -191,6 +258,7 @@ def load_lots_by_entry_signal_id():
 
             lot = decode_hash(redis_client.hgetall(key))
             entry_signal_id = lot.get("entry_signal_id")
+
             if not entry_signal_id:
                 continue
 
@@ -210,6 +278,7 @@ def get_latest_thresholds_by_symbol(symbols, namespace="bybit", search_back=500)
     coin 쪽 /api/thresholds.ts 와 같은 기준.
     """
     wanted = {str(s).upper() for s in symbols if s}
+
     if not wanted:
         return {}
 
@@ -269,51 +338,55 @@ def get_latest_thresholds_by_symbol(symbols, namespace="bybit", search_back=500)
     return found
 
 
-
-
-def persist_today_data(dry_run=False):
+def persist_today_data(dry_run=False, target_day=None):
     supabase = None if dry_run else get_supabase()
 
     now = datetime.now(SEOUL)
-
     boundary = time(6, 50)
 
-    today_0650 = SEOUL.localize(datetime.combine(now.date(), boundary))
+    # target_day가 있으면 해당 날짜의 06:50 ~ 다음날 06:50 저장
+    # target_day 예: "2026-05-13" 또는 date 객체
+    if target_day is not None:
+        if isinstance(target_day, str):
+            target_date = datetime.strptime(target_day, "%Y-%m-%d").date()
+        elif isinstance(target_day, date):
+            target_date = target_day
+        else:
+            raise ValueError("target_day는 'YYYY-MM-DD' 문자열 또는 date 객체여야 함")
 
-    # 항상 "직전 완료된 06:50"을 day_end로 잡음
-    if now >= today_0650:
-        day_end = today_0650
+        day_start = SEOUL.localize(datetime.combine(target_date, boundary))
+        day_end = day_start + timedelta(days=1)
+
     else:
-        day_end = today_0650 - timedelta(days=1)
+        today_0650 = SEOUL.localize(datetime.combine(now.date(), boundary))
 
-    day_start = day_end - timedelta(days=1)
+        # ✅ 현재 진행 중인 06:50 기준 day를 저장
+        if now >= today_0650:
+            day_start = today_0650
+            day_end = today_0650 + timedelta(days=1)
+        else:
+            day_start = today_0650 - timedelta(days=1)
+            day_end = today_0650
+
     day = day_start.strftime("%Y-%m-%d")
-
-    def is_today_signal(s):
-        ts_ms = s.get("ts_ms") or s.get("timestamp_ms")
-        if not ts_ms:
-            return False
-
-        try:
-            ts_ms = int(ts_ms)
-            dt = datetime.fromtimestamp(ts_ms / 1000, tz=SEOUL)
-            return day_start <= dt <= day_end
-        except Exception:
-            return False
 
     def is_today_trade_record(r):
         ts_ms = r.get("ts_ms") or r.get("timestamp_ms") or r.get("saved_ts_ms")
+
         if not ts_ms:
             return False
 
         try:
             ts_ms = int(float(ts_ms))
             dt = datetime.fromtimestamp(ts_ms / 1000, tz=SEOUL)
-            return day_start <= dt <= day_end
+
+            # ✅ 중복 방지 위해 day_end는 미포함
+            return day_start <= dt < day_end
+
         except Exception:
             return False
 
-    log.info("📦 Supabase persist 시작 day=%s dry_run=%s", day, dry_run)
+    log.info("📦 Supabase persist 시작 day=%s window=%s~%s dry_run=%s", day, day_start, day_end, dry_run)
 
     # 1) 오늘 수집 데이터
     target_day_key = day_start.strftime("%Y%m%d")
@@ -322,15 +395,16 @@ def persist_today_data(dry_run=False):
     news_raw = redis_client.get(news_key)
     news_data = decode_val(news_raw) if news_raw else None
 
-    log.info("news_data exists=%s", bool(news_data))
+    log.info("news_data exists=%s key=%s", bool(news_data), news_key)
 
     # 2) 매매 실행 기록 trade_records
     trade_record_key = "trading:agent:CopyZannavi:u7c9f14d2a1:BYBIT:trade_records"
+
     trade_records_raw = redis_client.xrevrange(
         trade_record_key,
         max="+",
         min="-",
-        count=1000,
+        count=5000,
     )
 
     trade_records = []
@@ -346,7 +420,14 @@ def persist_today_data(dry_run=False):
 
     before_count = len(trade_records)
     trade_records = [r for r in trade_records if is_today_trade_record(r)]
-    log.info("%s before_count=%d today_count=%d", trade_record_key, before_count, len(trade_records))
+
+    log.info(
+        "%s before_count=%d day_count=%d day=%s",
+        trade_record_key,
+        before_count,
+        len(trade_records),
+        day,
+    )
 
     signal_symbols = sorted({
         str(r.get("symbol", "")).upper()
@@ -354,9 +435,12 @@ def persist_today_data(dry_run=False):
         if isinstance(r, dict) and r.get("symbol")
     })
 
+    # ✅ ENTRY에 reasons_json이 없는 경우 원본 signals stream에서 보강
+    signals_by_id = load_signals_by_signal_id(namespace="bybit", search_back=5000)
+
     # 3) 현재 자산
-    # 네 실제 asset key가 다르면 여기만 바꾸면 됨
-    asset_key_candidates = ["trading:agent:CopyZannavi:u7c9f14d2a1:BYBIT:asset",
+    asset_key_candidates = [
+        "trading:agent:CopyZannavi:u7c9f14d2a1:BYBIT:asset",
     ]
 
     asset_data = None
@@ -371,7 +455,7 @@ def persist_today_data(dry_run=False):
     log.info("asset key=%s exists=%s", used_asset_key, bool(asset_data))
 
     if dry_run:
-        log.info("✅ dry-run 완료")
+        log.info("✅ dry-run 완료 day=%s", day)
         log.info("news sample=%s", news_data)
         log.info("trade_records sample=%s", trade_records[:2])
         log.info("asset sample=%s", asset_data)
@@ -384,7 +468,7 @@ def persist_today_data(dry_run=False):
         "updated_at": now.isoformat(),
     }).execute()
 
-    log.info("✅ daily_collections 저장 완료")
+    log.info("✅ daily_collections 저장 완료 day=%s", day)
 
     # 2) trade_records 저장
     trade_rows = []
@@ -393,10 +477,69 @@ def persist_today_data(dry_run=False):
         if not isinstance(r, dict):
             r = {"raw": r}
 
-        signal_id = r.get("signal_id") or r.get("exit_signal_id") or r.get("entry_signal_id") or r.get("_id")
+        signal_id = (
+            r.get("signal_id")
+            or r.get("exit_signal_id")
+            or r.get("entry_signal_id")
+            or r.get("_id")
+        )
+
         row_id = str(signal_id or r.get("_id"))
 
         raw_json = dict(r)
+
+        # 1) trade_record 자체 reasons 우선
+        reasons = normalize_reasons(raw_json.get("reasons_json"))
+
+        # 2) trade_record에 reasons_json이 없으면 원본 signal에서 보강
+        signal_ref_ids = [
+            raw_json.get("signal_id"),
+            raw_json.get("entry_signal_id"),
+            raw_json.get("open_signal_id"),
+            raw_json.get("exit_signal_id"),
+            raw_json.get("anchor_open_signal_id"),
+        ]
+
+        source_signal = None
+
+        for sid in signal_ref_ids:
+            if not sid:
+                continue
+
+            source_signal = signals_by_id.get(str(sid))
+
+            if source_signal:
+                break
+
+        if source_signal:
+            source_reasons = normalize_reasons(
+                source_signal.get("reasons_json")
+                or source_signal.get("reasons")
+            )
+
+            if not reasons and source_reasons:
+                reasons = source_reasons
+                raw_json["reasons_json"] = reasons
+
+            # 원본 signal도 raw_json에 남겨두면 디버깅 쉬움
+            raw_json["source_signal"] = source_signal
+
+        # 3) 최종 표시용 signal 결정
+        signal_kind = (
+            raw_json.get("signal")
+            or raw_json.get("signal_kind")
+            or raw_json.get("reason")
+            or raw_json.get("signal_type")
+            or raw_json.get("entry_reason")
+            or raw_json.get("exit_reason")
+            or (reasons[0] if reasons else None)
+            or raw_json.get("kind")
+        )
+
+        raw_json["signal"] = signal_kind
+        raw_json["signal_kind"] = signal_kind
+        raw_json["display_kind"] = signal_kind
+        raw_json["display_label"] = f"{signal_kind} {raw_json.get('side') or ''}".strip()
 
         trade_rows.append({
             "id": row_id,
@@ -404,6 +547,11 @@ def persist_today_data(dry_run=False):
             "symbol": r.get("symbol"),
             "side": r.get("side"),
             "kind": r.get("kind"),
+
+            # ✅ Supabase 컬럼 추가 필요
+            "signal": signal_kind,
+            "display_label": raw_json.get("display_label"),
+
             "price": r.get("price") or r.get("exit_price") or r.get("entry_price"),
             "qty": r.get("qty"),
 
@@ -415,9 +563,9 @@ def persist_today_data(dry_run=False):
 
     if trade_rows:
         supabase.table("trade_records").upsert(trade_rows).execute()
-        log.info("✅ trade_records 저장 완료 count=%d", len(trade_rows))
+        log.info("✅ trade_records 저장 완료 day=%s count=%d", day, len(trade_rows))
     else:
-        log.info("⏭️ trade_records 저장할 데이터 없음")
+        log.info("⏭️ trade_records 저장할 데이터 없음 day=%s", day)
 
     # 3) asset snapshot 저장
     if asset_data:
@@ -426,12 +574,16 @@ def persist_today_data(dry_run=False):
 
         wallet = asset_data.get("wallet.USDT")
 
-        # ✅ day_end 직전 마지막 close 저장
-        close_prices = fetch_close_prices_for_asset(asset_data, day_end)
+        # 과거 날짜 재저장일 경우 해당 day_end 기준 종가를 사용
+        # 현재 진행 중인 day면 now 기준
+        price_ref_time = min(now, day_end)
+
+        close_prices = fetch_close_prices_for_asset(asset_data, price_ref_time)
 
         # ✅ MA100 envelope 기준값 저장
         asset_symbols = extract_position_symbols(asset_data)
         symbols_for_thresholds = sorted(set(signal_symbols + asset_symbols))
+
         thresholds = get_latest_thresholds_by_symbol(
             symbols_for_thresholds,
             namespace="bybit",
@@ -440,7 +592,7 @@ def persist_today_data(dry_run=False):
 
         # ✅ raw_json 안에도 저장해서 프론트에서 바로 사용 가능하게 함
         asset_data["close_prices"] = close_prices
-        asset_data["close_price_at"] = day_end.isoformat()
+        asset_data["close_price_at"] = price_ref_time.isoformat()
         asset_data["thresholds"] = thresholds
         asset_data["thresholds_source"] = {
             "key": "trading:bybit:OpenPctLog",
@@ -460,20 +612,74 @@ def persist_today_data(dry_run=False):
         }, on_conflict="day").execute()
 
         log.info(
-            "✅ asset_snapshots 저장 완료 equity=%s unrealized=%s close_symbols=%d",
+            "✅ asset_snapshots 저장 완료 day=%s equity=%s unrealized=%s close_symbols=%d",
+            day,
             equity_usdt,
             unrealized_pnl_usdt,
             len(close_prices),
         )
     else:
-        log.info("⏭️ asset snapshot 저장할 데이터 없음")
+        log.info("⏭️ asset snapshot 저장할 데이터 없음 day=%s", day)
 
-    log.info("🎉 Supabase persist 완료")
+    log.info("🎉 Supabase persist 완료 day=%s", day)
+
+
+def persist_recent_days(days=5, dry_run=False, include_current_day=True):
+    """
+    최근 N일치 Supabase 업데이트.
+    day 기준은 06:50 ~ 다음날 06:50.
+
+    include_current_day=True:
+      현재 진행 중인 day 포함해서 최근 5일
+      예: 5/14 낮 실행 → 5/14, 5/13, 5/12, 5/11, 5/10
+
+    include_current_day=False:
+      완료된 day만 최근 5일
+      예: 5/14 낮 실행 → 5/13, 5/12, 5/11, 5/10, 5/09
+    """
+    now = datetime.now(SEOUL)
+    boundary = time(6, 50)
+    today_0650 = SEOUL.localize(datetime.combine(now.date(), boundary))
+
+    if now >= today_0650:
+        current_day_start = today_0650
+    else:
+        current_day_start = today_0650 - timedelta(days=1)
+
+    if not include_current_day:
+        current_day_start = current_day_start - timedelta(days=1)
+
+    log.info(
+        "📦 recent persist 시작 days=%d dry_run=%s include_current_day=%s",
+        days,
+        dry_run,
+        include_current_day,
+    )
+
+    for i in range(days):
+        target_date = (current_day_start - timedelta(days=i)).date()
+
+        log.info("====== 최근 %d/%d day=%s 업데이트 시작 ======", i + 1, days, target_date)
+
+        try:
+            persist_today_data(dry_run=dry_run, target_day=target_date)
+        except Exception as e:
+            log.exception("❌ day=%s 업데이트 실패: %s", target_date, e)
+
+    log.info("🎉 recent persist 완료 days=%d", days)
 
 
 if __name__ == "__main__":
-    # 기본은 무조건 dry-run
-    DRY_RUN = True
-    with_save = False
-#    persist_today_data(dry_run=DRY_RUN)
-    persist_today_data(dry_run=with_save)
+    # False = 실제 Supabase 저장
+    # True = 저장 안 하고 로그만 확인
+    DRY_RUN = False
+
+    # ✅ 최근 2일치 업데이트
+    persist_recent_days(
+        days=2,
+        dry_run=DRY_RUN,
+        include_current_day=True,
+    )
+
+    # ✅ 하루치만 저장하고 싶으면 위 recent 호출을 주석 처리하고 아래 사용
+    # persist_today_data(dry_run=DRY_RUN)
