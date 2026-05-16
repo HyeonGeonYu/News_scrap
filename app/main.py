@@ -30,17 +30,29 @@ try:
 except Exception:
     log.warning("client_setname failed", exc_info=True)
 
+def startup_persist_supabase():
+    """
+    서버 시작 시 1회 실행.
+    현재 진행 중인 06:50 day를 저장.
+    예: 5/14 낮 실행 → 5/14 06:50 ~ 5/15 06:50 window 기준 현재까지 저장
+    """
+    try:
+        log.info("📦 Supabase persist 시작 실행 current_day 포함")
+        persist_today_data(dry_run=False, include_current_day=True)
+    except Exception as e:
+        log.exception("❌ Supabase startup persist 실행 중 예외: %s", e)
+
 # ───────────────────────────────────────────────────────────
 # Supabase 장기 저장 루틴
 # ───────────────────────────────────────────────────────────
 def scheduled_persist_supabase():
     """
-    Redis에 쌓인 완료된 하루 데이터를 Supabase에 저장.
-    persist_today_data 내부에서 직전 완료된 06:50~06:50 window를 계산함.
+    Redis에 쌓인 직전 완료된 하루 데이터를 Supabase에 저장.
+    예: 5/14 06:55 실행 → 5/13 06:50 ~ 5/14 06:50 저장
     """
     try:
         log.info("📦 Supabase persist 스케줄 실행")
-        persist_today_data(dry_run=False)
+        persist_today_data(dry_run=False, include_current_day=False)
     except Exception as e:
         log.exception("❌ Supabase persist 실행 중 예외: %s", e)
 
@@ -106,8 +118,8 @@ def startup_runs():
     try:
         scheduled_store(run_all=True)
 
-        # ✅ 테스트용: 시작 시 Supabase persist도 1회 실행
-        scheduled_persist_supabase()
+        # ✅ 서버 시작 시에는 오늘 진행 중인 day 저장
+        startup_persist_supabase()
 
         if run_daily_now:
             log.info("🔄 Startup full-initialized 1D snapshot")
