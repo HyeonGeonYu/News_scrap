@@ -10,7 +10,6 @@ from supabase import create_client
 
 from redis_client import redis_client
 
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
@@ -49,6 +48,7 @@ def normalize_reasons(value):
         return value
 
     return []
+
 
 def to_float_or_none(v, *, positive_only=True):
     if v is None:
@@ -117,26 +117,12 @@ def pick_trade_price_with_source(r, source_signal=None):
 
 def resolve_pnl_usdt_from_record(r, source_signal=None):
     """
-    trade_record에 pnl_usdt가 없을 때 복구.
-
-    우선순위:
-      1) trade_record.pnl_usdt 계열 필드
-      2) source_signal.price를 exit price로 사용해서 직접 계산
-
-    반환:
-      gross_pnl_usdt, fee_usdt, pnl_usdt, pnl_source
+    표준 PnL 키는 pnl_usdt만 사용.
+    trade_record.pnl_usdt가 없으면 EXIT에 한해 source_signal.price로 USDT PnL 복구.
     """
     source_signal = source_signal or {}
 
-    existing_pnl = (
-        to_float_or_none(r.get("pnl_usdt"), positive_only=False)
-        or to_float_or_none(r.get("realized_pnl_usdt"), positive_only=False)
-        or to_float_or_none(r.get("realized_pnl"), positive_only=False)
-        or to_float_or_none(r.get("profit_usdt"), positive_only=False)
-        or to_float_or_none(r.get("exit_pnl_usdt"), positive_only=False)
-        or to_float_or_none(r.get("pnl"), positive_only=False)
-    )
-
+    existing_pnl = to_float_or_none(r.get("pnl_usdt"), positive_only=False)
     existing_gross = to_float_or_none(r.get("gross_pnl_usdt"), positive_only=False)
     existing_fee = to_float_or_none(r.get("fee_usdt"), positive_only=False)
 
@@ -149,10 +135,10 @@ def resolve_pnl_usdt_from_record(r, source_signal=None):
 
     side = str(r.get("side") or "").upper()
     qty = to_float_or_none(r.get("qty"))
-    entry_price = (
-        to_float_or_none(r.get("entry_price"))
-        or to_float_or_none(source_signal.get("entry_price"))
-    )
+    entry_price = to_float_or_none(r.get("entry_price"))
+
+    if entry_price is None:
+        entry_price = to_float_or_none(source_signal.get("entry_price"))
 
     exit_price, price_source = pick_trade_price_with_source(r, source_signal)
 
@@ -175,6 +161,7 @@ def resolve_pnl_usdt_from_record(r, source_signal=None):
     pnl = gross - fee
 
     return gross, fee, pnl, f"calculated_from_{price_source}"
+
 
 def load_signals_by_signal_id(namespace="bybit", search_back=5000):
     """
@@ -199,9 +186,9 @@ def load_signals_by_signal_id(namespace="bybit", search_back=5000):
         item = decode_hash(fields)
 
         sid = (
-            item.get("signal_id")
-            or item.get("id")
-            or item.get("_id")
+                item.get("signal_id")
+                or item.get("id")
+                or item.get("_id")
         )
 
         if not sid:
@@ -463,7 +450,12 @@ def get_latest_thresholds_by_symbol(symbols, namespace="bybit", search_back=500)
     return found
 
 
-def persist_today_data(dry_run=False, target_day=None, include_current_day=False):
+def persist_today_data(
+        dry_run=False,
+        target_day=None,
+        include_current_day=False,
+        save_asset_snapshot=True,
+):
     """
     Supabase에 하루치 데이터를 저장.
 
@@ -525,6 +517,16 @@ def persist_today_data(dry_run=False, target_day=None, include_current_day=False
                 day_end = today_0650 - timedelta(days=1)
 
     day = day_start.strftime("%Y-%m-%d")
+
+    # ✅ target_day 재처리는 과거 asset 덮어쓰기 위험이 있으므로 기본 차단
+    if target_day is not None and save_asset_snapshot:
+        log.warning(
+            "⚠️ target_day=%s 재처리에서 현재 Redis asset으로 asset_snapshots를 덮을 위험이 있어 "
+            "asset snapshot 저장을 자동 스킵합니다.",
+            target_day,
+        )
+        save_asset_snapshot = False
+
 
     def is_today_trade_record(r):
         ts_ms = r.get("ts_ms") or r.get("timestamp_ms") or r.get("saved_ts_ms")
@@ -656,13 +658,13 @@ def persist_today_data(dry_run=False, target_day=None, include_current_day=False
             r = {"raw": r}
 
         signal_id = (
-            r.get("signal_id")
-            or r.get("exit_signal_id")
-            or r.get("entry_signal_id")
-            or r.get("_id")
+                r.get("signal_id")
+                or r.get("exit_signal_id")
+                or r.get("entry_signal_id")
+                or r.get("_id")
         )
 
-        row_id = str(signal_id or r.get("_id") or f"{day}-{idx}")
+        row_id = str(r.get("_id") or signal_id or f"{day}-{idx}")
 
         raw_json = dict(r)
 
@@ -704,14 +706,14 @@ def persist_today_data(dry_run=False, target_day=None, include_current_day=False
 
         # 3) 최종 표시용 signal 결정
         signal_kind = (
-            raw_json.get("signal")
-            or raw_json.get("signal_kind")
-            or raw_json.get("reason")
-            or raw_json.get("signal_type")
-            or raw_json.get("entry_reason")
-            or raw_json.get("exit_reason")
-            or (reasons[0] if reasons else None)
-            or raw_json.get("kind")
+                raw_json.get("signal")
+                or raw_json.get("signal_kind")
+                or raw_json.get("reason")
+                or raw_json.get("signal_type")
+                or raw_json.get("entry_reason")
+                or raw_json.get("exit_reason")
+                or (reasons[0] if reasons else None)
+                or raw_json.get("kind")
         )
 
         raw_json["signal"] = signal_kind
@@ -767,7 +769,10 @@ def persist_today_data(dry_run=False, target_day=None, include_current_day=False
         log.info("⏭️ trade_records 저장할 데이터 없음 day=%s", day)
 
     # 3) asset snapshot 저장
-    if asset_data:
+    if not save_asset_snapshot:
+        log.info("⏭️ asset snapshot 저장 스킵 day=%s save_asset_snapshot=False", day)
+
+    elif asset_data:
         if not isinstance(asset_data, dict):
             asset_data = {"raw": asset_data}
 
@@ -832,7 +837,12 @@ def persist_today_data(dry_run=False, target_day=None, include_current_day=False
     }
 
 
-def persist_recent_days(days=5, dry_run=False, include_current_day=True):
+def persist_recent_days(
+        days=5,
+        dry_run=False,
+        include_current_day=True,
+        save_asset_snapshot=False,
+):
     """
     최근 N일치 Supabase 업데이트.
     day 기준은 06:50 ~ 다음날 06:50.
@@ -874,6 +884,7 @@ def persist_recent_days(days=5, dry_run=False, include_current_day=True):
                 dry_run=dry_run,
                 target_day=target_date,
                 include_current_day=False,
+                save_asset_snapshot=save_asset_snapshot,
             )
         except Exception as e:
             log.exception("❌ day=%s 업데이트 실패: %s", target_date, e)
