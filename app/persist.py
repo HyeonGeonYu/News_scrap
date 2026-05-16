@@ -338,14 +338,36 @@ def get_latest_thresholds_by_symbol(symbols, namespace="bybit", search_back=500)
     return found
 
 
-def persist_today_data(dry_run=False, target_day=None):
+def persist_today_data(dry_run=False, target_day=None, include_current_day=False):
+    """
+    Supabase에 하루치 데이터를 저장.
+
+    기준 window:
+      day_start = 해당 날짜 06:50 KST
+      day_end   = 다음 날짜 06:50 KST
+
+    target_day:
+      특정 날짜 강제 저장.
+      예: target_day="2026-05-14"
+      → 2026-05-14 06:50 ~ 2026-05-15 06:50
+
+    include_current_day=False:
+      운영 스케줄용.
+      항상 직전 완료된 day 저장.
+      예: 5/14 06:55 실행
+      → 5/13 06:50 ~ 5/14 06:50 저장
+
+    include_current_day=True:
+      서버 시작/수동 테스트용.
+      현재 진행 중인 day 저장.
+      예: 5/14 낮 실행
+      → 5/14 06:50 ~ 5/15 06:50 window 기준 현재까지 저장
+    """
     supabase = None if dry_run else get_supabase()
 
     now = datetime.now(SEOUL)
     boundary = time(6, 50)
 
-    # target_day가 있으면 해당 날짜의 06:50 ~ 다음날 06:50 저장
-    # target_day 예: "2026-05-13" 또는 date 객체
     if target_day is not None:
         if isinstance(target_day, str):
             target_date = datetime.strptime(target_day, "%Y-%m-%d").date()
@@ -360,13 +382,22 @@ def persist_today_data(dry_run=False, target_day=None):
     else:
         today_0650 = SEOUL.localize(datetime.combine(now.date(), boundary))
 
-        # ✅ 현재 진행 중인 06:50 기준 day를 저장
-        if now >= today_0650:
-            day_start = today_0650
-            day_end = today_0650 + timedelta(days=1)
+        if include_current_day:
+            # 서버 시작/수동 실행용: 현재 진행 중인 day
+            if now >= today_0650:
+                day_start = today_0650
+                day_end = today_0650 + timedelta(days=1)
+            else:
+                day_start = today_0650 - timedelta(days=1)
+                day_end = today_0650
         else:
-            day_start = today_0650 - timedelta(days=1)
-            day_end = today_0650
+            # 운영 06:55 스케줄용: 직전 완료된 day
+            if now >= today_0650:
+                day_start = today_0650 - timedelta(days=1)
+                day_end = today_0650
+            else:
+                day_start = today_0650 - timedelta(days=2)
+                day_end = today_0650 - timedelta(days=1)
 
     day = day_start.strftime("%Y-%m-%d")
 
@@ -380,15 +411,23 @@ def persist_today_data(dry_run=False, target_day=None):
             ts_ms = int(float(ts_ms))
             dt = datetime.fromtimestamp(ts_ms / 1000, tz=SEOUL)
 
-            # ✅ 중복 방지 위해 day_end는 미포함
+            # 중복 방지 위해 day_end는 미포함
             return day_start <= dt < day_end
 
         except Exception:
             return False
 
-    log.info("📦 Supabase persist 시작 day=%s window=%s~%s dry_run=%s", day, day_start, day_end, dry_run)
+    log.info(
+        "📦 Supabase persist 시작 day=%s window=%s~%s dry_run=%s include_current_day=%s target_day=%s",
+        day,
+        day_start,
+        day_end,
+        dry_run,
+        include_current_day,
+        target_day,
+    )
 
-    # 1) 오늘 수집 데이터
+    # 1) 뉴스/유튜브 등 daily 수집 데이터
     target_day_key = day_start.strftime("%Y%m%d")
     news_key = f"news:daily_saved_data:{target_day_key}"
 
@@ -400,12 +439,16 @@ def persist_today_data(dry_run=False, target_day=None):
     # 2) 매매 실행 기록 trade_records
     trade_record_key = "trading:agent:CopyZannavi:u7c9f14d2a1:BYBIT:trade_records"
 
-    trade_records_raw = redis_client.xrevrange(
-        trade_record_key,
-        max="+",
-        min="-",
-        count=5000,
-    )
+    try:
+        trade_records_raw = redis_client.xrevrange(
+            trade_record_key,
+            max="+",
+            min="-",
+            count=5000,
+        )
+    except Exception as e:
+        log.warning("⚠️ trade_records 읽기 실패 key=%s err=%s", trade_record_key, e)
+        trade_records_raw = []
 
     trade_records = []
 
@@ -435,7 +478,7 @@ def persist_today_data(dry_run=False, target_day=None):
         if isinstance(r, dict) and r.get("symbol")
     })
 
-    # ✅ ENTRY에 reasons_json이 없는 경우 원본 signals stream에서 보강
+    # ENTRY에 reasons_json이 없는 경우 원본 signals stream에서 보강
     signals_by_id = load_signals_by_signal_id(namespace="bybit", search_back=5000)
 
     # 3) 현재 자산
@@ -447,10 +490,13 @@ def persist_today_data(dry_run=False, target_day=None):
     used_asset_key = None
 
     for key in asset_key_candidates:
-        if redis_client.type(key) == b"hash":
-            asset_data = decode_hash(redis_client.hgetall(key))
-            used_asset_key = key
-            break
+        try:
+            if redis_client.type(key) == b"hash":
+                asset_data = decode_hash(redis_client.hgetall(key))
+                used_asset_key = key
+                break
+        except Exception as e:
+            log.warning("⚠️ asset key 확인 실패 key=%s err=%s", key, e)
 
     log.info("asset key=%s exists=%s", used_asset_key, bool(asset_data))
 
@@ -459,7 +505,14 @@ def persist_today_data(dry_run=False, target_day=None):
         log.info("news sample=%s", news_data)
         log.info("trade_records sample=%s", trade_records[:2])
         log.info("asset sample=%s", asset_data)
-        return
+        return {
+            "day": day,
+            "day_start": day_start.isoformat(),
+            "day_end": day_end.isoformat(),
+            "news_exists": bool(news_data),
+            "trade_records_count": len(trade_records),
+            "asset_exists": bool(asset_data),
+        }
 
     # 1) daily 저장
     supabase.table("daily_collections").upsert({
@@ -484,7 +537,7 @@ def persist_today_data(dry_run=False, target_day=None):
             or r.get("_id")
         )
 
-        row_id = str(signal_id or r.get("_id"))
+        row_id = str(signal_id or r.get("_id") or f"{day}-{idx}")
 
         raw_json = dict(r)
 
@@ -548,14 +601,14 @@ def persist_today_data(dry_run=False, target_day=None):
             "side": r.get("side"),
             "kind": r.get("kind"),
 
-            # ✅ Supabase 컬럼 추가 필요
+            # Supabase 컬럼 필요
             "signal": signal_kind,
             "display_label": raw_json.get("display_label"),
 
             "price": r.get("price") or r.get("exit_price") or r.get("entry_price"),
             "qty": r.get("qty"),
 
-            # ✅ 이제 pnl은 USDT 기준
+            # pnl은 USDT 기준
             "pnl": r.get("pnl_usdt"),
 
             "raw_json": raw_json,
@@ -574,13 +627,13 @@ def persist_today_data(dry_run=False, target_day=None):
 
         wallet = asset_data.get("wallet.USDT")
 
-        # 과거 날짜 재저장일 경우 해당 day_end 기준 종가를 사용
+        # 과거 날짜 재저장일 경우 해당 day_end 기준 종가 사용
         # 현재 진행 중인 day면 now 기준
         price_ref_time = min(now, day_end)
 
         close_prices = fetch_close_prices_for_asset(asset_data, price_ref_time)
 
-        # ✅ MA100 envelope 기준값 저장
+        # MA100 envelope 기준값 저장
         asset_symbols = extract_position_symbols(asset_data)
         symbols_for_thresholds = sorted(set(signal_symbols + asset_symbols))
 
@@ -590,7 +643,7 @@ def persist_today_data(dry_run=False, target_day=None):
             search_back=500,
         )
 
-        # ✅ raw_json 안에도 저장해서 프론트에서 바로 사용 가능하게 함
+        # raw_json 안에도 저장해서 프론트에서 바로 사용 가능하게 함
         asset_data["close_prices"] = close_prices
         asset_data["close_price_at"] = price_ref_time.isoformat()
         asset_data["thresholds"] = thresholds
@@ -623,6 +676,15 @@ def persist_today_data(dry_run=False, target_day=None):
 
     log.info("🎉 Supabase persist 완료 day=%s", day)
 
+    return {
+        "day": day,
+        "day_start": day_start.isoformat(),
+        "day_end": day_end.isoformat(),
+        "news_exists": bool(news_data),
+        "trade_records_count": len(trade_records),
+        "asset_exists": bool(asset_data),
+    }
+
 
 def persist_recent_days(days=5, dry_run=False, include_current_day=True):
     """
@@ -630,12 +692,12 @@ def persist_recent_days(days=5, dry_run=False, include_current_day=True):
     day 기준은 06:50 ~ 다음날 06:50.
 
     include_current_day=True:
-      현재 진행 중인 day 포함해서 최근 5일
-      예: 5/14 낮 실행 → 5/14, 5/13, 5/12, 5/11, 5/10
+      현재 진행 중인 day 포함해서 최근 N일.
+      예: 5/14 낮 실행 → 5/14, 5/13, 5/12 ...
 
     include_current_day=False:
-      완료된 day만 최근 5일
-      예: 5/14 낮 실행 → 5/13, 5/12, 5/11, 5/10, 5/09
+      완료된 day만 최근 N일.
+      예: 5/14 낮 실행 → 5/13, 5/12, 5/11 ...
     """
     now = datetime.now(SEOUL)
     boundary = time(6, 50)
@@ -662,7 +724,11 @@ def persist_recent_days(days=5, dry_run=False, include_current_day=True):
         log.info("====== 최근 %d/%d day=%s 업데이트 시작 ======", i + 1, days, target_date)
 
         try:
-            persist_today_data(dry_run=dry_run, target_day=target_date)
+            persist_today_data(
+                dry_run=dry_run,
+                target_day=target_date,
+                include_current_day=False,
+            )
         except Exception as e:
             log.exception("❌ day=%s 업데이트 실패: %s", target_date, e)
 
@@ -674,12 +740,20 @@ if __name__ == "__main__":
     # True = 저장 안 하고 로그만 확인
     DRY_RUN = False
 
-    # ✅ 최근 2일치 업데이트
+    # 수동 실행/테스트:
+    # 현재 진행 중인 day 포함해서 최근 2일 저장
     persist_recent_days(
-        days=2,
+        days=1,
         dry_run=DRY_RUN,
         include_current_day=True,
     )
 
-    # ✅ 하루치만 저장하고 싶으면 위 recent 호출을 주석 처리하고 아래 사용
-    # persist_today_data(dry_run=DRY_RUN)
+    # 하루치만 저장하고 싶으면 위 recent 호출을 주석 처리하고 아래 사용
+    # 운영 스케줄과 같은 동작: 직전 완료 day 저장
+    # persist_today_data(dry_run=DRY_RUN, include_current_day=False)
+
+    # 서버 시작 시와 같은 동작: 현재 진행 중인 day 저장
+    # persist_today_data(dry_run=DRY_RUN, include_current_day=True)
+
+    # 특정 날짜 강제 저장
+    # persist_today_data(dry_run=DRY_RUN, target_day="2026-05-14")
