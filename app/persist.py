@@ -50,6 +50,131 @@ def normalize_reasons(value):
 
     return []
 
+def to_float_or_none(v, *, positive_only=True):
+    if v is None:
+        return None
+
+    try:
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return None
+            v = v.replace("%", "")
+
+        f = float(v)
+
+        if positive_only and f <= 0:
+            return None
+
+        return f
+    except Exception:
+        return None
+
+
+def pick_trade_price_with_source(r, source_signal=None):
+    """
+    Supabase trade_records.price에 넣을 가격 선택.
+
+    ENTRY:
+      entry_price → price → source_signal.price
+
+    EXIT:
+      exit_price → price → source_signal.price
+
+    주의:
+      0.0은 유효 가격으로 보지 않음.
+    """
+    kind = str(r.get("kind") or r.get("action") or "").upper()
+    source_signal = source_signal or {}
+
+    if kind == "ENTRY":
+        candidates = [
+            ("trade_record.entry_price", r.get("entry_price")),
+            ("trade_record.price", r.get("price")),
+            ("source_signal.price", source_signal.get("price")),
+        ]
+    elif kind == "EXIT":
+        candidates = [
+            ("trade_record.exit_price", r.get("exit_price")),
+            ("trade_record.price", r.get("price")),
+            ("source_signal.price", source_signal.get("price")),
+        ]
+    else:
+        candidates = [
+            ("trade_record.price", r.get("price")),
+            ("trade_record.exit_price", r.get("exit_price")),
+            ("trade_record.entry_price", r.get("entry_price")),
+            ("source_signal.price", source_signal.get("price")),
+        ]
+
+    for src, value in candidates:
+        f = to_float_or_none(value)
+        if f is not None:
+            return f, src
+
+    return None, None
+
+
+def resolve_pnl_usdt_from_record(r, source_signal=None):
+    """
+    trade_record에 pnl_usdt가 없을 때 복구.
+
+    우선순위:
+      1) trade_record.pnl_usdt 계열 필드
+      2) source_signal.price를 exit price로 사용해서 직접 계산
+
+    반환:
+      gross_pnl_usdt, fee_usdt, pnl_usdt, pnl_source
+    """
+    source_signal = source_signal or {}
+
+    existing_pnl = (
+        to_float_or_none(r.get("pnl_usdt"), positive_only=False)
+        or to_float_or_none(r.get("realized_pnl_usdt"), positive_only=False)
+        or to_float_or_none(r.get("realized_pnl"), positive_only=False)
+        or to_float_or_none(r.get("profit_usdt"), positive_only=False)
+        or to_float_or_none(r.get("exit_pnl_usdt"), positive_only=False)
+        or to_float_or_none(r.get("pnl"), positive_only=False)
+    )
+
+    existing_gross = to_float_or_none(r.get("gross_pnl_usdt"), positive_only=False)
+    existing_fee = to_float_or_none(r.get("fee_usdt"), positive_only=False)
+
+    if existing_pnl is not None:
+        return existing_gross, existing_fee, existing_pnl, "trade_record.pnl_usdt"
+
+    kind = str(r.get("kind") or r.get("action") or "").upper()
+    if kind != "EXIT":
+        return None, None, None, None
+
+    side = str(r.get("side") or "").upper()
+    qty = to_float_or_none(r.get("qty"))
+    entry_price = (
+        to_float_or_none(r.get("entry_price"))
+        or to_float_or_none(source_signal.get("entry_price"))
+    )
+
+    exit_price, price_source = pick_trade_price_with_source(r, source_signal)
+
+    fee_rate = to_float_or_none(r.get("fee_rate"), positive_only=False)
+    if fee_rate is None:
+        fee_rate = 0.00055
+
+    if side not in ("LONG", "SHORT"):
+        return None, None, None, None
+
+    if qty is None or entry_price is None or exit_price is None:
+        return None, None, None, None
+
+    if side == "LONG":
+        gross = (exit_price - entry_price) * qty
+    else:
+        gross = (entry_price - exit_price) * qty
+
+    fee = (entry_price * qty + exit_price * qty) * fee_rate
+    pnl = gross - fee
+
+    return gross, fee, pnl, f"calculated_from_{price_source}"
 
 def load_signals_by_signal_id(namespace="bybit", search_back=5000):
     """
@@ -594,6 +719,26 @@ def persist_today_data(dry_run=False, target_day=None, include_current_day=False
         raw_json["display_kind"] = signal_kind
         raw_json["display_label"] = f"{signal_kind} {raw_json.get('side') or ''}".strip()
 
+        trade_price, trade_price_source = pick_trade_price_with_source(raw_json, source_signal)
+
+        gross_pnl_usdt, fee_usdt, pnl_usdt, pnl_source = resolve_pnl_usdt_from_record(
+            raw_json,
+            source_signal,
+        )
+
+        raw_json["resolved_price"] = trade_price
+        raw_json["resolved_price_source"] = trade_price_source
+
+        if gross_pnl_usdt is not None:
+            raw_json["gross_pnl_usdt_resolved"] = gross_pnl_usdt
+
+        if fee_usdt is not None:
+            raw_json["fee_usdt_resolved"] = fee_usdt
+
+        if pnl_usdt is not None:
+            raw_json["pnl_usdt_resolved"] = pnl_usdt
+            raw_json["pnl_resolved_from"] = pnl_source
+
         trade_rows.append({
             "id": row_id,
             "day": day,
@@ -601,15 +746,16 @@ def persist_today_data(dry_run=False, target_day=None, include_current_day=False
             "side": r.get("side"),
             "kind": r.get("kind"),
 
-            # Supabase 컬럼 필요
             "signal": signal_kind,
             "display_label": raw_json.get("display_label"),
 
-            "price": r.get("price") or r.get("exit_price") or r.get("entry_price"),
+            # ✅ ENTRY면 entry price, EXIT면 exit price, 없으면 source_signal.price
+            "price": trade_price,
+
             "qty": r.get("qty"),
 
-            # pnl은 USDT 기준
-            "pnl": r.get("pnl_usdt"),
+            # ✅ 기존 pnl_usdt 없으면 source_signal.price로 계산한 USDT PnL
+            "pnl": pnl_usdt,
 
             "raw_json": raw_json,
         })
@@ -743,7 +889,7 @@ if __name__ == "__main__":
     # 수동 실행/테스트:
     # 현재 진행 중인 day 포함해서 최근 2일 저장
     persist_recent_days(
-        days=1,
+        days=2,
         dry_run=DRY_RUN,
         include_current_day=True,
     )
