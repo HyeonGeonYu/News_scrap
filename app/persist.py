@@ -763,7 +763,10 @@ def persist_today_data(
         })
 
     if trade_rows:
-        supabase.table("trade_records").upsert(trade_rows).execute()
+        supabase.table("trade_records").upsert(
+            trade_rows,
+            on_conflict="id",
+        ).execute()
         log.info("✅ trade_records 저장 완료 day=%s count=%d", day, len(trade_rows))
     else:
         log.info("⏭️ trade_records 저장할 데이터 없음 day=%s", day)
@@ -900,7 +903,7 @@ if __name__ == "__main__":
     # 수동 실행/테스트:
     # 현재 진행 중인 day 포함해서 최근 2일 저장
     persist_recent_days(
-        days=2,
+        days=9,
         dry_run=DRY_RUN,
         include_current_day=True,
     )
