@@ -62,7 +62,6 @@ def fetch_and_store_youtube_data():
                             existing_data['summary_content'] = transcript
                             # Redis 덮어쓰기
                             redis_client.hset("youtube_data", country, json.dumps(existing_data))
-                            redis_client.hset("news:youtube_data", country, json.dumps(existing_data))  # ✅ 추가
                             print(f"🔔 {country} — 스크립트 추가 저장 완료")
                         if existing_data.get('summary_result') is None:
                             transcript = existing_data.get('summary_content')
@@ -73,7 +72,6 @@ def fetch_and_store_youtube_data():
                             existing_data['processed_time'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
                             # Redis 덮어쓰기
                             redis_client.hset("youtube_data", country, json.dumps(existing_data))
-                            redis_client.hset("news:youtube_data", country, json.dumps(existing_data))  # ✅ 추가
                             if summary_result == None:
                                 print(f"🔔 {country} — 요약 결과 추가되지 않음")
                             else:
@@ -102,6 +100,16 @@ def fetch_and_store_youtube_data():
                 print(f"⏭️ {country} — 오늘 영상 아님 ({video_date_str})")
                 continue
 
+            # ✅ 오늘 영상이면 Whisper STT (날짜 확인 후에 실행)
+            parsed = urlparse(video_data['url'])
+            video_id = parse_qs(parsed.query).get('v', [None])[0]
+            if video_id:
+                transcript = get_transcript_text(video_id)
+                if transcript:
+                    video_data['summary_content'] = transcript
+                else:
+                    print(f"[{video_id}] Whisper 실패, description 폴백 사용")
+
             # ✅ 요약 생성
             summary_result = summarize_content(video_data['summary_content'])
             video_data['summary_result'] = summary_result
@@ -111,7 +119,6 @@ def fetch_and_store_youtube_data():
 
             # ✅ Redis에 해당 국가만 저장 (덮어쓰기)
             redis_client.hset("youtube_data", country, json.dumps(video_data))
-            redis_client.hset("news:youtube_data", country, json.dumps(video_data))     # ✅ 추가
             print(f"🔔 {country} 데이터 저장됨: {video_data['url']}")
             updated = True
 
@@ -211,14 +218,9 @@ def save_daily_data(keep_days: int = 10):
     save_dict = {"youtube_data": filtered_data}
     payload = json.dumps(save_dict, ensure_ascii=False)
 
-    # ✅ (기존 호환 유지) Hash에 저장
-    redis_client.hset("daily_saved_data", date_str, payload)
-    print(f"✅ {len(filtered_data)}개 저장 완료 → Redis hash: daily_saved_data, field: {date_str}")
-
-    # ✅ (신규 추가) TTL key에도 저장 (10일 자동 만료)
     new_key = f"news:daily_saved_data:{date_str}"
     redis_client.set(new_key, payload, ex=keep_days * 86400)
-    print(f"✅ TTL 저장 완료 → Redis key: {new_key} (TTL {keep_days}일)")
+    print(f"✅ {len(filtered_data)}개 저장 완료 → Redis key: {new_key} (TTL {keep_days}일)")
 
 
 if __name__ == "__main__":

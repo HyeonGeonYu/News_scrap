@@ -1,19 +1,28 @@
 # syntax=docker/dockerfile:1.6
-FROM python:3.11-slim
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TZ=Asia/Seoul \
     LANG=C.UTF-8 \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
-    HF_HOME=/opt/hf_cache
+    HF_HOME=/opt/hf_cache \
+    DEBIAN_FRONTEND=noninteractive
 
-# 1) apt 캐시를 BuildKit으로 재사용
+# 1) Python 3.11 + 기본 도구
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-      tzdata ca-certificates tini wget gnupg ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+      tzdata ca-certificates tini wget gnupg ffmpeg software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+      python3.11 python3.11-dev python3.11-distutils \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
+    && wget -qO /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py \
+    && python3.11 /tmp/get-pip.py \
+    && rm /tmp/get-pip.py
 
 # 2) Edge 설치도 apt 캐시 재사용
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -26,7 +35,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     && apt-get install -y --no-install-recommends microsoft-edge-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# 2-1) Google Chrome 설치 (channel="chrome"용)
+# 3) Google Chrome 설치
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor \
@@ -42,7 +51,6 @@ WORKDIR /app
 
 COPY requirements.txt ./requirements.txt
 
-# 3) pip 캐시도 BuildKit으로 재사용 (+ playwright도 같이 캐시 타게)
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     python -m pip install --upgrade pip && \
     python -m pip install -r requirements.txt && \
