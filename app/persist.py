@@ -641,10 +641,30 @@ def persist_today_data(
             "asset_exists": bool(asset_data),
         }
 
-    # 1) daily 저장
+    # 1) daily 저장 — youtube transcript는 별도 테이블, raw_json에서 제거
+    news_data_stripped = news_data
+    if isinstance(news_data, dict) and isinstance(news_data.get("youtube_data"), dict):
+        youtube_data_stripped = {}
+        transcript_rows = []
+        for country, info in news_data["youtube_data"].items():
+            if not isinstance(info, dict):
+                youtube_data_stripped[country] = info
+                continue
+            sc = info.get("summary_content")
+            youtube_data_stripped[country] = {k: v for k, v in info.items() if k != "summary_content"}
+            if sc:
+                transcript_rows.append({"day": day, "country": country, "summary_content": sc})
+        news_data_stripped = {**news_data, "youtube_data": youtube_data_stripped}
+
+        if transcript_rows:
+            supabase.table("youtube_transcripts").upsert(
+                transcript_rows, on_conflict="day,country"
+            ).execute()
+            log.info("✅ youtube_transcripts 저장 완료 day=%s count=%d", day, len(transcript_rows))
+
     supabase.table("daily_collections").upsert({
         "day": day,
-        "raw_json": news_data,
+        "raw_json": news_data_stripped,
         "updated_at": now.isoformat(),
     }).execute()
 
