@@ -71,6 +71,7 @@ def get_transcript_text(video_id, headless=True):
             }],
             "quiet": True,
             "no_warnings": True,
+            "noprogress": True,
         }
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -212,16 +213,16 @@ def summarize_content(content):
         prompt = (
                 content.strip()
                 + "\n\n---\n\n"
-                + "위 뉴스 전체 내용을 기반으로 각 뉴스 항목별로 정리해줘.\n"
-                + "뉴스가 여러 개일 경우 **각 뉴스마다 아래 형식**을 반복해서 작성해줘:\n\n"
+                + "위 뉴스 전체 내용을 기반으로 가장 중요한 뉴스 5개를 선별해서 정리해줘.\n"
+                + "중요도는 사회적 파급력, 정치·경제적 영향, 국제적 관심도 기준으로 판단해.\n"
+                + "**각 뉴스마다 아래 형식**을 반복해서 작성해줘:\n\n"
                 + "(대제목으로 1,2,3...) 1. 🗞️ [뉴스 제목 혹은 주제 요약] \n"
                 + "✅ 한줄 요약: (핵심 사건을 한 문장으로)\n"
                 + "🔥 주요 쟁점:\n"
                 + " (들여쓰기 4칸 보기편하게)1) ...\n"
                 + " (들여쓰기 4칸 보기편하게)2) ...\n"
                 + " (들여쓰기 4칸 보기편하게)3) ...\n\n"
-                + "각 뉴스는 명확히 구분해서 작성해"
-                + "정리 순서는 뉴스 등장 순서와 같게 해줘. "
+                + "각 뉴스는 명확히 구분해서 작성해. "
                 + "반드시 한글,한국어로만 작성해."
         )
 
@@ -314,14 +315,11 @@ def get_latest_video_data(channel, headless=True):
                         "title": video["snippet"]["title"],
                         "publishedAt": video["snippet"]["publishedAt"],
                         "summary_target": channel["save_fields"],
-                        "summary_content": video["snippet"]["description"] if channel["save_fields"] == "description" else None
+                        "summary_content": video["snippet"]["description"]
                     }
                 })
 
-    if latest["data"] and channel["save_fields"] == "subtitle":
-        # 지금 자막 수집은 문제있음 구현이 어려움
-        transcript = get_transcript_text(latest["video_id"], headless=headless)
-        latest["data"]["summary_content"] = transcript
+    pass
 
 
     return latest["data"]
