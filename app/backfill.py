@@ -84,10 +84,10 @@ def backfill(dry_run=False, limit=30):
                 if transcript:
                     print(f"[{day}] {country} — Whisper 완료 ({len(transcript)}자)")
                     video_data["summary_content"] = transcript
-                elif summary_content:
+                elif summary_content and len(summary_content) > 50:
                     print(f"[{day}] {country} — Whisper 실패, 기존 description 사용 ({len(summary_content)}자)")
                 else:
-                    print(f"[{day}] {country} — Whisper 실패 + description 없음, 스킵")
+                    print(f"[{day}] {country} — Whisper 실패 + 유효한 텍스트 없음, 스킵")
                     continue
 
             # GPT 요약 생성

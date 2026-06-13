@@ -77,7 +77,11 @@ def get_transcript_text(video_id, headless=True):
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
         except Exception as e:
-            print(f"[{video_id}] 다운로드 실패: {e}")
+            err_str = str(e)
+            if "Private video" in err_str or "Video unavailable" in err_str or "This video is not available" in err_str:
+                print(f"[{video_id}] 비공개/삭제된 영상, 스킵")
+            else:
+                print(f"[{video_id}] 다운로드 실패: {e}")
             return None
 
         audio_files = _glob.glob(os.path.join(tmpdir, "*.mp3"))
