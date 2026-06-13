@@ -102,13 +102,30 @@ def backfill(dry_run=False, limit=30):
                 print(f"[{day}] {country} — GPT 요약 실패")
 
         if row_updated:
-            raw_json["youtube_data"] = youtube_data
+            # youtube_transcripts에 transcript 별도 저장
+            transcript_rows = []
+            for country, video_data in youtube_data.items():
+                sc = video_data.get("summary_content")
+                if sc:
+                    transcript_rows.append({"day": day, "country": country, "summary_content": sc})
+
+            # daily_collections에는 summary_content 제거하고 저장
+            youtube_data_stripped = {
+                country: {k: v for k, v in info.items() if k != "summary_content"}
+                for country, info in youtube_data.items()
+            }
+            raw_json["youtube_data"] = youtube_data_stripped
+
             if not dry_run:
+                if transcript_rows:
+                    supabase.table("youtube_transcripts").upsert(
+                        transcript_rows, on_conflict="day,country"
+                    ).execute()
                 supabase.table("daily_collections").update({
                     "raw_json": raw_json,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 }).eq("day", day).execute()
-                print(f"[{day}] ✅ Supabase 업데이트 완료")
+                print(f"[{day}] ✅ Supabase 업데이트 완료 (transcripts: {len(transcript_rows)}개)")
             else:
                 print(f"[{day}] [DRY-RUN] 저장 스킵")
             total_updated += 1
