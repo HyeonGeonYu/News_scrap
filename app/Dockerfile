@@ -5,13 +5,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TZ=Asia/Seoul \
     LANG=C.UTF-8 \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    HF_HOME=/opt/hf_cache
 
 # 1) apt 캐시를 BuildKit으로 재사용
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-      tzdata ca-certificates tini wget gnupg \
+      tzdata ca-certificates tini wget gnupg ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # 2) Edge 설치도 apt 캐시 재사용
@@ -47,7 +48,9 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     python -m pip install -r requirements.txt && \
     python -m playwright install --with-deps msedge chromium
 
-RUN chown -R appuser:appuser /ms-playwright
+RUN python -c "from faster_whisper import WhisperModel; WhisperModel('small', device='cpu', compute_type='int8')"
+
+RUN chown -R appuser:appuser /ms-playwright /opt/hf_cache
 
 COPY app/ /app/
 RUN chown -R appuser:appuser /app

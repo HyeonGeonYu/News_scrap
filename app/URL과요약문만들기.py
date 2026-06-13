@@ -39,95 +39,63 @@ def get_video_details(video_id):
     items = response.json().get("items")
     return items[0] if items else None
 
+_whisper_model = None
+
+def _get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        import ctranslate2
+        from faster_whisper import WhisperModel
+        if ctranslate2.get_cuda_device_count() > 0:
+            device, compute_type = "cuda", "float16"
+        else:
+            device, compute_type = "cpu", "int8"
+        print(f"Whisper 디바이스: {device} ({compute_type})")
+        _whisper_model = WhisperModel("small", device=device, compute_type=compute_type)
+    return _whisper_model
+
 def get_transcript_text(video_id, headless=True):
-    return "개발중"
+    import tempfile
+    import glob as _glob
+    import yt_dlp
 
-    # ✅ Copy-as-fetch 끝 세미콜론 제거(도커/로컬 공통으로 안전)
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            channel="msedge",  # 도커에 Edge를 설치/번들한 경우에만 OK
-            headless=headless,
-            args=[
-                "--no-sandbox",  # ✅ 컨테이너에서 거의 필수
-                "--disable-dev-shm-usage",  # ✅ /dev/shm 부족 이슈 방지
-                "--disable-gpu",  # (선택) 리눅스 headless 안정화
-                "--no-first-run",
-                "--no-default-browser-check",
-                "--disable-popup-blocking",
-                "--lang=ko-KR",
-                "--window-size=1280,720",
-            ],
-        )
-        context = browser.new_context(
-            locale="ko-KR",
-            timezone_id="Asia/Seoul",
-            viewport={"width": 1280, "height": 720},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
-        )
-
-        # persistent context는 new_context()가 아니라 그냥 page 열면 됨
-        page = context.new_page()
-
-        video_url = "https://www.youtube.com/watch?v=" + video_id
-        page.goto(video_url, wait_until="domcontentloaded", timeout=60000)
-        page.wait_for_timeout(1500)
-
-        # 더보기 버튼 클릭
+    print(f"[{video_id}] 음성 다운로드 중...")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ydl_opts = {
+            "format": "bestaudio/best",
+            "outtmpl": os.path.join(tmpdir, f"{video_id}.%(ext)s"),
+            "postprocessors": [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "32",
+            }],
+            "quiet": True,
+            "no_warnings": True,
+        }
         try:
-            page.click("tp-yt-paper-button#expand", timeout=3000)
-            print("✅ 더보기 버튼 클릭 성공")
-        except Exception:
-            print("⚠️ 더보기 버튼 클릭 실패(이미 열려있을 수도 있음)")
-
-        try:
-            page.wait_for_selector("button[aria-label='스크립트 표시']", timeout=5000)
-            page.locator("button[aria-label='스크립트 표시']").first.click()
-            print("✅ '스크립트 표시' 버튼 클릭 성공")
-            page.wait_for_timeout(1000)
-        except Exception:
-            print("⚠️ '스크립트 표시' 버튼이 없거나 클릭 실패 (이미 열림일 수 있음)")
-
-        try:
-            chapter_tabs = page.locator("button[role='tab'][aria-label='챕터']")
-            if chapter_tabs.count() > 0:
-                chapter_tabs.first.click()
-                print("✅ 챕터 탭 클릭 성공")
-                page.wait_for_timeout(800)
-
-                page.locator("button[role='tab'][aria-label='스크립트']").click()
-                print("✅ 스크립트 탭 클릭 성공")
-                page.wait_for_timeout(1000)
-            else:
-                print("ℹ️ 챕터 탭 없음 — 기본 스크립트 탭 활성 상태로 간주")
-
-            page.wait_for_selector("yt-formatted-string.segment-text", timeout=10000)
-            print("✅ 스크립트 패널 로딩 완료")
-
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
         except Exception as e:
-            try:
-                page.screenshot(path="/app/debug.png", full_page=True)
-                with open("/app/debug.html", "w", encoding="utf-8") as f:
-                    f.write(page.content())
-                print("🧩 DEBUG saved: /app/debug.png, /app/debug.html")
-            except Exception as dump_e:
-                print(f"🧩 DEBUG dump failed: {dump_e}")
-
-            print(f"⚠️ 스크립트/챕터 탭 처리 실패: {e}")
-            context.close()
+            print(f"[{video_id}] 다운로드 실패: {e}")
             return None
 
-        # 자막 텍스트 추출
+        audio_files = _glob.glob(os.path.join(tmpdir, "*.mp3"))
+        if not audio_files:
+            print(f"[{video_id}] 오디오 파일 없음")
+            return None
+
+        print(f"[{video_id}] 다운로드 완료, Whisper 변환 시작...")
         try:
-            page.wait_for_selector("yt-formatted-string.segment-text", timeout=8000)
-        except Exception:
-            pass
-
-        segments = page.query_selector_all("yt-formatted-string.segment-text")
-        transcript_texts = [seg.inner_text().strip() for seg in segments]
-        full_transcript = "\n".join([t for t in transcript_texts if t])
-
-        context.close()
-        return full_transcript
+            model = _get_whisper_model()
+            segments, _ = model.transcribe(audio_files[0], beam_size=5)
+            transcript = " ".join(seg.text.strip() for seg in segments)
+            result = transcript.strip() or None
+            if result:
+                print(f"[{video_id}] Whisper 변환 완료 ({len(result)}자)")
+            return result
+        except Exception as e:
+            print(f"Whisper 변환 실패 ({video_id}): {e}")
+            return None
 
 def open_transcript_ui(page):
     try:
@@ -231,9 +199,6 @@ def search_video_ids(channel_id, playlist_id, keyword):
     return results
 
 def summarize_content(content):
-    # 요약은 임시로 중단
-    return None
-
     if content is None:
         print("contents 없음")
         return None

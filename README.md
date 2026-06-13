@@ -6,5 +6,6 @@ docker run -d --name news-scrap `
   -e TZ=Asia/Seoul `
   --shm-size=1g `
   --restart unless-stopped `
+  --gpus all `
   news-scrap
 
