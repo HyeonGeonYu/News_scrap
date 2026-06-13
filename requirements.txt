@@ -11,3 +11,5 @@ tenacity
 websockets
 psycopg[binary]
 supabase
+yt-dlp
+faster-whisper
