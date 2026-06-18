@@ -16,6 +16,7 @@ from storage import (
     fetch_and_store_holiday_data,
     save_daily_data,
 )
+from 세계정세분석 import analyze_and_store_world_state
 from redis_client import redis_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -30,6 +31,21 @@ try:
 except Exception:
     log.warning("client_setname failed", exc_info=True)
 
+def run_world_state_analysis():
+    """
+    daily_collections 최근 한 달(롤링 30일)을 입력으로 세계 정세(나라별 상태 + 양자 관계)를
+    구조화 JSON으로 추출해 Supabase world_state(주차별 행)에 저장.
+    persist 직후(일일 데이터 확정 후) 매일 실행 → 상태가 매일 조금씩 변동, 그 주 행은 주말에 freeze.
+    실패해도 persist 흐름에 영향 없게 격리.
+    """
+    try:
+        log.info("🌍 world_state 분석 시작 (최근 30일)")
+        analyze_and_store_world_state(days=30)
+        log.info("🌍 world_state 분석 완료")
+    except Exception as e:
+        log.exception("❌ world_state 분석 중 예외: %s", e)
+
+
 def startup_persist_supabase():
     """
     서버 시작 시 1회 실행.
@@ -41,6 +57,9 @@ def startup_persist_supabase():
         persist_today_data(dry_run=False, include_current_day=True)
     except Exception as e:
         log.exception("❌ Supabase startup persist 실행 중 예외: %s", e)
+
+    # 일일 데이터 확정 후 세계 정세 분석
+    run_world_state_analysis()
 
 # ───────────────────────────────────────────────────────────
 # Supabase 장기 저장 루틴
@@ -55,6 +74,9 @@ def scheduled_persist_supabase():
         persist_today_data(dry_run=False, include_current_day=False)
     except Exception as e:
         log.exception("❌ Supabase persist 실행 중 예외: %s", e)
+
+    # 일일 데이터 확정 후 세계 정세 분석
+    run_world_state_analysis()
 
 # ───────────────────────────────────────────────────────────
 # 기존 저장 루틴
