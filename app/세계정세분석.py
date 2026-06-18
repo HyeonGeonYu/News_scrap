@@ -114,11 +114,15 @@ def _build_input_text(per_country: dict) -> str:
     for country in COUNTRIES:
         items = sorted(per_country.get(country, []), key=lambda x: x["date"])
         if not items:
-            blocks.append(f"## {country}\n(최근 뉴스 요약 없음)")
-            continue
-        joined = "\n\n".join(f"[{it['date']}]\n{it['summary']}" for it in items)
-        blocks.append(f"## {country}\n{joined}")
-    return "\n\n====================\n\n".join(blocks)
+            body = "(최근 뉴스 요약 없음)"
+        else:
+            body = "\n\n".join(f"[{it['date']}]\n{it['summary']}" for it in items)
+        blocks.append(
+            f"========== {country} 뉴스 채널 보도 시작 (출처국 = {country}) ==========\n"
+            f"{body}\n"
+            f"========== {country} 뉴스 채널 보도 끝 =========="
+        )
+    return "\n\n".join(blocks)
 
 
 def _build_sources(per_country: dict) -> dict:
@@ -172,16 +176,11 @@ def _country_schema():
     }
 
 
-def _build_schema():
+def _relations_schema():
+    """reduce 단계: 관계 배열만."""
     return {
         "type": "object",
         "properties": {
-            "countries": {
-                "type": "object",
-                "properties": {c: _country_schema() for c in COUNTRIES},
-                "required": COUNTRIES,
-                "additionalProperties": False,
-            },
             "relations": {
                 "type": "array",
                 "items": {
@@ -198,71 +197,112 @@ def _build_schema():
                 },
             },
         },
-        "required": ["countries", "relations"],
+        "required": ["relations"],
         "additionalProperties": False,
     }
 
 
-SYSTEM_PROMPT = """당신은 국제 정세 분석가다. 7개국(Korea, USA, Japan, China, Germany, UK, India)의
-최근 약 한 달치 뉴스 요약을 읽고, 각 나라의 상태와 나라 간 관계를 게임 대시보드용 구조화 데이터로 분석한다.
-최근 흐름일수록 더 비중을 두되, 한 달 추세 위에서 현재 상태를 판단한다.
+# map 단계: 나라 1개만 입력 → 그 나라 텍스트만 보므로 타국 내용 오귀속이 구조적으로 불가능.
+# __C__ 는 호출 시 나라명으로 치환. ({text,dates} 리터럴 때문에 f-string 안 씀)
+_COUNTRY_PROMPT_TMPL = (
+    "당신은 국제 정세 분석가다. 아래는 __C__ 뉴스 채널의 최근 약 한 달 보도 요약이다.\n"
+    "오직 __C__ 자신의 현재 상태를 게임 대시보드용 구조화 데이터로 분석한다.\n"
+    "최근 흐름일수록 더 비중을 두되, 한 달 추세 위에서 현재 상태를 판단한다.\n\n"
+    "규칙:\n"
+    "- 모든 텍스트는 한국어.\n"
+    "- 이 채널이 다른 나라를 보도하더라도 그건 __C__의 현안이 아니다. __C__ 자신의 상황·이슈·입장만 뽑아라.\n"
+    "- mood: 현재 분위기 2~4글자 형용사(예: 긴장된, 강경한, 안정적, 도약중, 불안한).\n"
+    "- mood_score: 종합 안정도 0~10 정수(0=위기, 10=매우 안정).\n"
+    "- icon: __C__를 상징하는 이모지 1개.\n"
+    "- eco / pol / dip: 경제 / 정치안정 / 외교 점수 각 0~10 정수.\n"
+    "- score_basis: {text, dates} — eco/pol/dip 점수를 그렇게 매긴 근거 한두 문장 + 근거 날짜.\n"
+    "- issues: {text, dates} 정확히 3개. text 는 25자 이내 현안 한 줄.\n"
+    "- worry: {text, dates} — 가장 걱정하는 것 한 문장(30자 이내).\n"
+    "- hope: {text, dates} — 기대하는 것 한 문장(30자 이내).\n"
+    "- special_note: 이번 주 특이사항(휴장·큰 행사 등) 한 줄. 공휴일 목록은 제외. 없으면 빈 문자열.\n"
+    "- dates: 입력에 실제 등장한 날짜 문자열 그대로(예: \"2026-06-15\"). 지어내지 말 것. 근거 없으면 [].\n"
+    "- 정보가 부족하면 합리적으로 추론하되 과장하지 않는다.\n"
+)
 
-입력 형식: 각국 블록 안에 `[YYYY-MM-DD]` 날짜 머리표 아래 그 날짜의 뉴스 요약이 온다.
+# reduce 단계: 7개국 전체를 보고 관계만. 관계는 양쪽 블록 종합이 핵심.
+RELATIONS_PROMPT = (
+    "당신은 국제 정세 분석가다. 아래는 7개국(Korea, USA, Japan, China, Germany, UK, India)\n"
+    "뉴스 채널의 최근 약 한 달 보도다. 각 나라는 '========== {나라} 뉴스 채널 보도 시작 ...' 블록으로 구분된다.\n"
+    "7개국 사이의 의미있는 양자 관계만 분석한다(보통 8~14개).\n\n"
+    "규칙:\n"
+    "- 각 관계는 두 나라 a, b '양쪽 블록을 종합'해서 판단한다"
+    "(a 채널이 b를 어떻게 보도/대하는지 + b 채널이 a를 어떻게 보도/대하는지를 함께 본다. 한쪽만 보지 마라).\n"
+    "- score: -5(적대) ~ +5(동맹) 정수. 양쪽 관점이 다르면 종합해 한 값으로.\n"
+    "- label: 관계 핵심 10자 이내(예: 무역전쟁 확전, 동맹 강화, 국경 분쟁).\n"
+    "- dates: 근거 날짜. a 또는 b 둘 중 어느 블록에 등장한 날짜든 쓸 수 있다. 입력에 실제 있는 날짜만.\n"
+    "- 같은 나라 쌍 중복 금지((a, b) 순서만 다른 것도).\n"
+    "- 모든 텍스트는 한국어.\n"
+)
 
-★ 근거(dates) 규칙 — 가장 중요:
-- 점수·현안·관계·걱정·기대 등 모든 판단에는 반드시 그 판단의 출처가 된 날짜를 dates 배열에 넣는다.
-- dates 의 각 값은 입력에 실제로 등장한 날짜 문자열을 그대로 쓴다(예: "2026-06-15"). 지어내지 않는다.
-- 보통 근거 날짜는 1~3개. 입력에서 근거를 찾을 수 없으면 dates 는 빈 배열 [].
 
-규칙:
-- 모든 텍스트는 한국어로 작성한다.
-- mood: 그 나라의 현재 분위기를 2~4글자 형용사로 (예: 긴장된, 강경한, 안정적, 도약중, 불안한).
-- mood_score: 종합 안정도 0~10 정수 (0=위기, 10=매우 안정).
-- icon: 그 나라를 상징하는 이모지 1개.
-- eco / pol / dip: 경제 / 정치안정 / 외교 점수 각 0~10 정수.
-- score_basis: { text, dates } — eco/pol/dip 점수를 그렇게 매긴 근거를 한두 문장으로(각 점수가 왜 그 값인지), dates 에 근거 날짜.
-- issues: { text, dates } 객체 정확히 3개. text 는 25자 이내 현안 한 줄, dates 에 근거 날짜.
-- worry: { text, dates } — 그 나라가 지금 가장 걱정하는 것 한 문장(30자 이내) + 근거 날짜.
-- hope:  { text, dates } — 그 나라가 기대하는 것 한 문장(30자 이내) + 근거 날짜.
-- special_note: 이번 주 특이사항(공휴일로 인한 휴장, 큰 행사 등 특별 맥락) 한 줄. 공휴일 '목록'은 별도로 표시되므로 여기 나열하지 말 것. 없으면 빈 문자열 "".
-- relations: 위 7개국 사이의 의미있는 양자 관계만 추린다(보통 8~14개).
-    - score: -5(적대) ~ +5(동맹) 정수.
-    - label: 관계 핵심을 10자 이내로 (예: 무역전쟁 확전, 동맹 강화, 국경 분쟁).
-    - dates: 그 관계 판단의 근거 날짜.
-    - 같은 나라 쌍을 중복해서 넣지 않는다. (a, b) 순서만 다른 중복도 금지.
-- 요약 정보가 부족한 나라는 합리적으로 추론하되 사실을 과장하지 않는다.
-"""
+def _analyze_one_country(country: str, items: list) -> dict:
+    """map: 그 나라 요약만 입력 → 타국 내용이 물리적으로 안 섞임."""
+    items = sorted(items, key=lambda x: x["date"])
+    if items:
+        text = "\n\n".join(f"[{it['date']}]\n{it['summary']}" for it in items)
+    else:
+        text = "(최근 뉴스 요약 없음)"
+
+    completion = openai_client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {"role": "system", "content": _COUNTRY_PROMPT_TMPL.replace("__C__", country)},
+            {"role": "user", "content": f"[{country} 뉴스 채널 보도]\n\n{text}"},
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {"name": "country_state", "strict": True, "schema": _country_schema()},
+        },
+    )
+    return json.loads(completion.choices[0].message.content)
+
+
+def _analyze_relations(per_country: dict) -> list:
+    """reduce: 7개국 전체를 보고 양자 관계만 종합."""
+    input_text = _build_input_text(per_country)
+    completion = openai_client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {"role": "system", "content": RELATIONS_PROMPT},
+            {"role": "user", "content": input_text},
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {"name": "relations", "strict": True, "schema": _relations_schema()},
+        },
+    )
+    return json.loads(completion.choices[0].message.content).get("relations", [])
 
 
 def analyze_world_state(days: int = 30) -> dict:
     per_country = _collect_recent_summaries(days)
-    input_text = _build_input_text(per_country)
 
-    if not input_text.strip():
+    if all(len(v) == 0 for v in per_country.values()):
         raise RuntimeError("분석할 뉴스 요약이 없습니다.")
 
-    log.info("🤖 world_state 분석 LLM 호출 (input %d자)", len(input_text))
-    completion = openai_client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user",
-             "content": f"아래는 각국 최근 {days}일 뉴스 요약이다.\n\n{input_text}"},
-        ],
-        response_format={
-            "type": "json_schema",
-            "json_schema": {
-                "name": "world_state",
-                "strict": True,
-                "schema": _build_schema(),
-            },
-        },
-    )
-    result = json.loads(completion.choices[0].message.content)
-    # 근거 날짜 → 원문 링크 변환용 출처 맵을 백엔드가 부착 (LLM이 만들지 않음)
-    result["sources"] = _build_sources(per_country)
+    # MAP: 나라별 독립 분석 (다른 나라 텍스트가 섞이지 않아 오귀속 불가)
+    countries = {}
+    for c in COUNTRIES:
+        log.info("🤖 [map] %s 분석", c)
+        countries[c] = _analyze_one_country(c, per_country.get(c, []))
+
+    # REDUCE: 관계는 전체 블록 종합
+    log.info("🤖 [reduce] 관계 분석")
+    relations = _analyze_relations(per_country)
+
+    result = {
+        "countries": countries,
+        "relations": relations,
+        # 근거 날짜 → 원문 링크 변환용 출처 맵 (LLM이 아니라 백엔드가 부착)
+        "sources": _build_sources(per_country),
+    }
     log.info("✅ 분석 완료: countries=%d relations=%d sources=%d",
-             len(result.get("countries", {})), len(result.get("relations", [])),
+             len(countries), len(relations),
              sum(len(v) for v in result["sources"].values()))
     return result
 
