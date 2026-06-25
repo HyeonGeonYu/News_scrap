@@ -1,5 +1,5 @@
 import json
-from URL과요약문만들기 import get_latest_video_data, summarize_content, get_transcript_text
+from URL과요약문만들기 import get_latest_video_data, summarize_content, get_transcript_text, render_summary_text
 from 지수정보가져오기 import fetch_stock_info, calculate_dxy_from_currency_data, get_access_token
 from 휴장일구하기 import get_market_holidays
 from urllib.parse import urlparse, parse_qs
@@ -63,16 +63,17 @@ def fetch_and_store_youtube_data():
                             # Redis 덮어쓰기
                             redis_client.hset("youtube_data", country, json.dumps(existing_data))
                             print(f"🔔 {country} — 스크립트 추가 저장 완료")
-                        if existing_data.get('summary_result') is None:
+                        if existing_data.get('summary_items') is None:
                             transcript = existing_data.get('summary_content')
-                            summary_result = summarize_content(transcript)
+                            items = summarize_content(transcript)
 
-                            existing_data['summary_result'] = summary_result
+                            existing_data['summary_items'] = items
+                            existing_data['summary_result'] = render_summary_text(items)
                             # 저장 시간 업데이트 (UTC)
                             existing_data['processed_time'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
                             # Redis 덮어쓰기
                             redis_client.hset("youtube_data", country, json.dumps(existing_data))
-                            if summary_result == None:
+                            if items is None:
                                 print(f"🔔 {country} — 요약 결과 추가되지 않음")
                             else:
                                 print(f"🔔 {country} — 요약 결과 추가 저장 완료")
@@ -110,9 +111,10 @@ def fetch_and_store_youtube_data():
                 else:
                     print(f"[{video_id}] Whisper 실패, description 폴백 사용")
 
-            # ✅ 요약 생성
-            summary_result = summarize_content(video_data['summary_content'])
-            video_data['summary_result'] = summary_result
+            # ✅ 요약 생성 (구조화 items + 텍스트 둘 다 저장)
+            items = summarize_content(video_data['summary_content'])
+            video_data['summary_items'] = items
+            video_data['summary_result'] = render_summary_text(items)
 
             # ✅ 저장 시간 추가 (UTC 기준)
             video_data['processed_time'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
