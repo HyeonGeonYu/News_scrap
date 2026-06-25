@@ -3,6 +3,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import requests
 import os
+import json
 from playwright.sync_api import TimeoutError as PWTimeout
 import sys
 import asyncio
@@ -203,7 +204,21 @@ def search_video_ids(channel_id, playlist_id, keyword):
             results.append(vid_id)
     return results
 
+# 한 영상에서 뽑을 최대 뉴스 개수
+MAX_NEWS_ITEMS = 5
+
+
 def summarize_content(content):
+    """
+    뉴스 전체 텍스트 -> 중요도 순위별 구조화 요약(list[dict]).
+
+    반환:
+      [{"rank": 1, "title": ..., "summary": ..., "points": [...]}, ...]
+      또는 실패 시 None
+
+    NOTE: 반환 타입이 list(구조화)로 바뀌었음.
+          기존 텍스트 포맷(summary_result)이 필요하면 render_summary_text(items) 사용.
+    """
     if content is None:
         print("contents 없음")
         return None
@@ -217,35 +232,112 @@ def summarize_content(content):
         prompt = (
                 content.strip()
                 + "\n\n---\n\n"
-                + "위 뉴스 전체 내용을 기반으로 가장 중요한 뉴스 5개를 선별해서 정리해줘.\n"
-                + "중요도는 사회적 파급력, 정치·경제적 영향, 국제적 관심도 기준으로 판단해.\n"
-                + "**각 뉴스마다 아래 형식**을 반복해서 작성해줘:\n\n"
-                + "(대제목으로 1,2,3...) 1. 🗞️ [뉴스 제목 혹은 주제 요약] \n"
-                + "✅ 한줄 요약: (핵심 사건을 한 문장으로)\n"
-                + "🔥 주요 쟁점:\n"
-                + " (들여쓰기 4칸 보기편하게)1) ...\n"
-                + " (들여쓰기 4칸 보기편하게)2) ...\n"
-                + " (들여쓰기 4칸 보기편하게)3) ...\n\n"
-                + "각 뉴스는 명확히 구분해서 작성해. "
-                + "반드시 한글,한국어로만 작성해."
+                + "위 뉴스 전체 내용을 기반으로 사회적 파급력, 정치·경제적 영향, 국제적 관심도를 기준으로 "
+                + f"가장 중요한 뉴스를 최대 {MAX_NEWS_ITEMS}개까지 중요도 순으로 선별해 JSON으로만 출력해줘.\n"
+                + "형식(JSON):\n"
+                + '{ "items": [ { "rank": 1, '
+                + '"title": "뉴스 제목 혹은 주제 요약", '
+                + '"summary": "핵심 사건을 한 문장으로", '
+                + '"points": ["주요 쟁점1", "주요 쟁점2", "주요 쟁점3"] } ] }\n'
+                + "- rank는 1부터 시작하는 중요도 순위(중복 없이, 1이 가장 중요).\n"
+                + f"- items는 최대 {MAX_NEWS_ITEMS}개. 뉴스가 적으면 더 적어도 됨.\n"
+                + "- points는 항목당 2~4개.\n"
+                + "- 모든 문자열은 반드시 한글, 한국어로만 작성해.\n"
+                + "- JSON 외의 다른 텍스트는 절대 출력하지 마."
         )
 
         completion = openai_client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
                 {"role": "user", "content": prompt}
-            ]
+            ],
+            response_format={"type": "json_object"},
         )
-        summary = completion.choices[0].message.content
-        return summary
+        raw = completion.choices[0].message.content
+        items = _coerce_summary_items(raw)
+        return items or None
 
     except Exception as e:
         print(f"오류 발생: {e}")
         return None
 
+
+def _coerce_summary_items(raw):
+    """LLM이 돌려준 JSON 문자열 -> 정규화된 items 리스트."""
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
     except Exception as e:
-        print("❌ 요약 API 실패:", e)
-        return "❌ 요약 실패: GPT 호출 오류"
+        print(f"요약 JSON 파싱 실패: {e}")
+        return []
+
+    if isinstance(data, list):
+        arr = data
+    elif isinstance(data, dict):
+        arr = data.get("items") or data.get("news") or data.get("results") or []
+    else:
+        arr = []
+
+    out = []
+    for i, it in enumerate(arr):
+        if not isinstance(it, dict):
+            continue
+
+        title = str(it.get("title") or it.get("headline") or "").strip()
+        summary = str(
+            it.get("summary") or it.get("one_line") or it.get("한줄요약") or ""
+        ).strip()
+
+        points_raw = it.get("points") or it.get("쟁점") or it.get("key_points") or []
+        if isinstance(points_raw, str):
+            points = [points_raw.strip()] if points_raw.strip() else []
+        elif isinstance(points_raw, list):
+            points = [str(p).strip() for p in points_raw if str(p).strip()]
+        else:
+            points = []
+
+        if not (title or summary or points):
+            continue
+
+        try:
+            rank = int(it.get("rank"))
+        except (TypeError, ValueError):
+            rank = i + 1
+
+        out.append({"rank": rank, "title": title, "summary": summary, "points": points})
+
+    # 중요도(rank) 정렬 후 1..N 재부여, 최대 MAX_NEWS_ITEMS개로 제한
+    out.sort(key=lambda x: x.get("rank", 999))
+    out = out[:MAX_NEWS_ITEMS]
+    for idx, it in enumerate(out):
+        it["rank"] = idx + 1
+    return out
+
+
+def render_summary_text(items):
+    """
+    구조화 items -> 기존 summary_result 텍스트 포맷으로 렌더.
+    세계정세분석.py / 아카이브 <pre> / 복사 기능 호환을 위해 유지.
+    """
+    if not items:
+        return None
+    blocks = []
+    for it in items:
+        rank = it.get("rank")
+        title = (it.get("title") or "").strip()
+        summary = (it.get("summary") or "").strip()
+        points = it.get("points") or []
+
+        lines = [f"{rank}. 🗞️ {title}"]
+        if summary:
+            lines.append(f"✅ 한줄 요약: {summary}")
+        if points:
+            lines.append("🔥 주요 쟁점:")
+            for j, p in enumerate(points, start=1):
+                lines.append(f"    {j}) {p}")
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
 
 def find_similar_video_title_id(data, keyword, similarity_threshold=0.9,from_playlist=False):
     try:
@@ -341,8 +433,9 @@ if __name__ == "__main__":
 
         video_data = get_latest_video_data(channel, headless=not SHOW_CHROME)
 
-        summary_result = summarize_content(video_data['summary_content'])
-        video_data['summary_result'] = summary_result
+        items = summarize_content(video_data['summary_content'])
+        video_data['summary_items'] = items
+        video_data['summary_result'] = render_summary_text(items)
         results[country] = video_data
 
     print(results)

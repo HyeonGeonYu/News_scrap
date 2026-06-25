@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
 from persist import get_supabase
-from URL과요약문만들기 import get_transcript_text, summarize_content
+from URL과요약문만들기 import get_transcript_text, summarize_content, render_summary_text
 
 
 def extract_video_id(url):
@@ -90,13 +90,14 @@ def backfill(dry_run=False, limit=30):
                     print(f"[{day}] {country} — Whisper 실패 + 유효한 텍스트 없음, 스킵")
                     continue
 
-            # GPT 요약 생성
+            # GPT 요약 생성 (구조화 items + 텍스트 둘 다 저장)
             content_for_summary = video_data.get("summary_content")
-            summary_result = summarize_content(content_for_summary)
+            items = summarize_content(content_for_summary)
 
-            if summary_result:
+            if items:
                 print(f"[{day}] {country} — GPT 요약 완료")
-                video_data["summary_result"] = summary_result
+                video_data["summary_items"] = items
+                video_data["summary_result"] = render_summary_text(items)
                 row_updated = True
             else:
                 print(f"[{day}] {country} — GPT 요약 실패")
