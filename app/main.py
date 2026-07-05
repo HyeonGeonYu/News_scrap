@@ -17,6 +17,7 @@ from storage import (
     save_daily_data,
 )
 from 세계정세분석 import analyze_and_store_world_state
+from 전일브리핑 import generate_and_store_daily_briefing
 from redis_client import redis_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -46,6 +47,17 @@ def run_world_state_analysis():
         log.exception("❌ world_state 분석 중 예외: %s", e)
 
 
+def run_daily_briefing():
+    """전날(확정된 06:50 윈도우) 각국 요약을 종합해 핵심 뉴스 5개 브리핑 생성.
+    youtube_data['global_briefing']으로 발행 → 홈 자동 전파. 같은 날 중복 생성은 내부에서 스킵."""
+    try:
+        log.info("🗞️ 전일 글로벌 브리핑 생성 시작")
+        generate_and_store_daily_briefing()
+        log.info("🗞️ 전일 글로벌 브리핑 완료")
+    except Exception as e:
+        log.exception("❌ 전일 브리핑 생성 중 예외: %s", e)
+
+
 def startup_persist_supabase():
     """
     서버 시작 시 1회 실행.
@@ -58,8 +70,9 @@ def startup_persist_supabase():
     except Exception as e:
         log.exception("❌ Supabase startup persist 실행 중 예외: %s", e)
 
-    # 일일 데이터 확정 후 세계 정세 분석
+    # 일일 데이터 확정 후 세계 정세 분석 + 전일 브리핑
     run_world_state_analysis()
+    run_daily_briefing()
 
 # ───────────────────────────────────────────────────────────
 # Supabase 장기 저장 루틴
@@ -75,30 +88,39 @@ def scheduled_persist_supabase():
     except Exception as e:
         log.exception("❌ Supabase persist 실행 중 예외: %s", e)
 
-    # 일일 데이터 확정 후 세계 정세 분석
+    # 일일 데이터 확정 후 세계 정세 분석 + 전일 브리핑
     run_world_state_analysis()
+    run_daily_briefing()
 
 # ───────────────────────────────────────────────────────────
 # 기존 저장 루틴
 # ───────────────────────────────────────────────────────────
 def scheduled_store(run_all: bool = False):
-    """기존에 돌리던 저장 작업들."""
-    try:
-        now = datetime.now(SEOUL)
+    """기존에 돌리던 저장 작업들.
+    ⚠️ 단계별 try 격리 — 한 단계 실패(예: 한투 API 접속불가)가 뒤 단계(특히 23시
+    데일리 스냅샷)를 막으면 다음날 persist가 빈 데이터가 됨(2026-07-04 실제 발생)."""
+    now = datetime.now(SEOUL)
 
-        # 유튜브: 11~15시
+    # 유튜브: 11~15시
+    try:
         if run_all or (11 <= now.hour < 22):
             log.info("⏰ YouTube 데이터 저장 (%s)", now.strftime("%Y-%m-%d %H:%M"))
             youtube_result = fetch_and_store_youtube_data()
             log.info(str(youtube_result))
         else:
             log.info("⏭️ YouTube 저장 시간대 아님 (run_all=False)")
+    except Exception as e:
+        log.exception("❌ YouTube 저장 중 예외(다음 단계 계속): %s", e)
 
+    try:
         log.info("📈 chart data 저장 시작...")
         stored_result = fetch_and_store_chart_data()
         log.info(stored_result)
+    except Exception as e:
+        log.exception("❌ chart data 저장 중 예외(다음 단계 계속): %s", e)
 
-        # 휴일: 월요일
+    # 휴일: 월요일
+    try:
         if run_all or now.weekday() == 0:
             log.info("📅 휴일 데이터 저장 체크...")
             try:
@@ -119,16 +141,18 @@ def scheduled_store(run_all: bool = False):
                 log.exception("❌ 휴일 timestamp 확인 중 오류: %s", e)
         else:
             log.info("⏭️ 휴일 데이터 요일 아님 (run_all=False)")
+    except Exception as e:
+        log.exception("❌ 휴일 데이터 저장 중 예외(다음 단계 계속): %s", e)
 
-        # 데일리: 23시 이후
+    # 데일리: 23시 이후 — persist(익일 06:55)의 입력이라 반드시 실행돼야 함
+    try:
         if run_all or (now.hour > 22):
             log.info("🕚 데일리 데이터 저장 실행")
             save_daily_data()
         else:
             log.info("⏭️ 데일리 저장 시간대 아님 (run_all=False)")
-
     except Exception as e:
-        log.exception("❌ scheduled_store 실행 중 예외: %s", e)
+        log.exception("❌ 데일리 저장 중 예외: %s", e)
 
 def startup_runs():
     now = datetime.now(SEOUL)
