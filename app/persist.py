@@ -848,6 +848,14 @@ def persist_today_data(
     else:
         log.info("⏭️ asset snapshot 저장할 데이터 없음 day=%s", day)
 
+    # 4) MT5(데모) 일일 equity 스냅샷 — CFD 페이지 자산추이용. Redis 해시에 영구 기록.
+    #    equity = wallet.USD + Σ positions.*.pnl (executor-a2가 발행하는 브로커 정확값)
+    if save_asset_snapshot:
+        try:
+            save_mt5_daily_equity(day, now)
+        except Exception as e:
+            log.warning("⚠️ MT5 daily equity 저장 실패 day=%s: %s", day, e)
+
     log.info("🎉 Supabase persist 완료 day=%s", day)
 
     return {
@@ -858,6 +866,61 @@ def persist_today_data(
         "trade_records_count": len(trade_records),
         "asset_exists": bool(asset_data),
     }
+
+
+MT5_ASSET_KEY = "trading:agent:CopyZannaviMT5:u8f3a9c1e7b:MT5:asset"
+MT5_DAILY_EQUITY_KEY = "trading:agent:CopyZannaviMT5:u8f3a9c1e7b:MT5:daily_equity"
+
+
+def save_mt5_daily_equity(day: str, now):
+    """MT5(데모) 계정 일일 equity 스냅샷 → Redis 해시(day → json). 프론트 /api/mt5-equity가 읽음.
+    equity = wallet.USD + Σ positions.*.{LONG,SHORT}.pnl (봇 발행 정확 손익)."""
+    if redis_client.type(MT5_ASSET_KEY) != b"hash":
+        log.info("⏭️ MT5 asset 해시 없음 → daily equity 스킵")
+        return
+
+    asset = decode_hash(redis_client.hgetall(MT5_ASSET_KEY))
+
+    wallet = None
+    try:
+        wallet = float(asset.get("wallet.USD"))
+    except (TypeError, ValueError):
+        pass
+    if wallet is None:
+        log.info("⏭️ MT5 wallet.USD 없음 → daily equity 스킵")
+        return
+
+    unrealized = 0.0
+    for key, value in asset.items():
+        if not str(key).startswith("positions."):
+            continue
+        pos = value
+        if isinstance(pos, str):
+            try:
+                pos = json.loads(pos)
+            except Exception:
+                continue
+        if not isinstance(pos, dict):
+            continue
+        for side in ("LONG", "SHORT"):
+            p = pos.get(side)
+            if isinstance(p, dict) and p.get("pnl") is not None:
+                try:
+                    unrealized += float(p["pnl"])
+                except (TypeError, ValueError):
+                    pass
+
+    equity = wallet + unrealized
+    payload = json.dumps({
+        "equity_usd": round(equity, 2),
+        "wallet_usd": round(wallet, 2),
+        "unrealized_usd": round(unrealized, 2),
+        "saved_at": now.isoformat(),
+    }, ensure_ascii=False)
+
+    redis_client.hset(MT5_DAILY_EQUITY_KEY, day, payload)
+    log.info("✅ MT5 daily equity 저장 day=%s equity=%.2f (wallet=%.2f, unrl=%.2f)",
+             day, equity, wallet, unrealized)
 
 
 def persist_recent_days(
