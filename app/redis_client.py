@@ -19,3 +19,10 @@ redis_client = redis.Redis(
     password=REDIS_PASSWORD,
     ssl=True
 )
+
+# 트레이딩 데이터(config/asset/signals/trade_records/lots/OpenPctLog)는 tradingBot이
+# 2026-07-16 로컬 Docker Redis로 이전 → Upstash 복사본은 stale. persist가 이걸로 읽는다.
+# TRADING_REDIS_URL 예: redis://host.docker.internal:6379/0 (또는 redis://127.0.0.1:6379/0)
+# 미설정 시 기존 Upstash(redis_client)로 폴백 → 동작 불변.
+TRADING_REDIS_URL = os.getenv("TRADING_REDIS_URL")
+trading_redis_client = redis.from_url(TRADING_REDIS_URL) if TRADING_REDIS_URL else redis_client

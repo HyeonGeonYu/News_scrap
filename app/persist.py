@@ -8,7 +8,9 @@ import requests
 from pytz import timezone
 from supabase import create_client
 
-from redis_client import redis_client
+# redis_client = 로컬 트레이딩 Redis(트레이딩 read), news_redis = Upstash(뉴스 read / daily_equity write).
+# TRADING_REDIS_URL 미설정 시 둘 다 Upstash라 기존과 동일 동작.
+from redis_client import trading_redis_client as redis_client, redis_client as news_redis
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -558,7 +560,7 @@ def persist_today_data(
     target_day_key = day_start.strftime("%Y%m%d")
     news_key = f"news:daily_saved_data:{target_day_key}"
 
-    news_raw = redis_client.get(news_key)
+    news_raw = news_redis.get(news_key)  # 뉴스는 Upstash
     news_data = decode_val(news_raw) if news_raw else None
 
     log.info("news_data exists=%s key=%s", bool(news_data), news_key)
@@ -918,7 +920,7 @@ def save_mt5_daily_equity(day: str, now):
         "saved_at": now.isoformat(),
     }, ensure_ascii=False)
 
-    redis_client.hset(MT5_DAILY_EQUITY_KEY, day, payload)
+    news_redis.hset(MT5_DAILY_EQUITY_KEY, day, payload)  # 프론트(mt5-equity.ts)가 Upstash서 읽으므로 Upstash에 기록
     log.info("✅ MT5 daily equity 저장 day=%s equity=%.2f (wallet=%.2f, unrl=%.2f)",
              day, equity, wallet, unrealized)
 
