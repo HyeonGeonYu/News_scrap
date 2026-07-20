@@ -664,13 +664,17 @@ def persist_today_data(
             ).execute()
             log.info("✅ youtube_transcripts 저장 완료 day=%s count=%d", day, len(transcript_rows))
 
-    supabase.table("daily_collections").upsert({
-        "day": day,
-        "raw_json": news_data_stripped,
-        "updated_at": now.isoformat(),
-    }).execute()
-
-    log.info("✅ daily_collections 저장 완료 day=%s", day)
+    # 뉴스 데이터가 없으면(예: 과거일 재persist) daily_collections를 건드리지 않는다.
+    # (news_data=None으로 upsert하면 raw_json=null이 되어 기존 뉴스 백필이 지워짐)
+    if news_data is not None:
+        supabase.table("daily_collections").upsert({
+            "day": day,
+            "raw_json": news_data_stripped,
+            "updated_at": now.isoformat(),
+        }).execute()
+        log.info("✅ daily_collections 저장 완료 day=%s", day)
+    else:
+        log.info("⏭️ news_data 없음 → daily_collections 건너뜀(기존 백필 보존) day=%s", day)
 
     # 2) trade_records 저장
     trade_rows = []
