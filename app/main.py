@@ -93,6 +93,37 @@ def scheduled_persist_supabase():
     run_daily_briefing()
 
 # ───────────────────────────────────────────────────────────
+# 트레이딩봇 월간 보고서 (2026-09-02 도입) — 매월 1일 07:30, 지난달 심볼×전략 평가를
+# 생성해 파일봇 텔레그램으로 전송. 파라미터 조정 판단은 세션에서 사용자와 진행.
+# ───────────────────────────────────────────────────────────
+def scheduled_monthly_report():
+    import os, subprocess, requests as _rq
+    try:
+        log.info("📊 월간 보고서 생성 실행")
+        r = subprocess.run(["python", "monthly_report.py"], capture_output=True,
+                           encoding="utf-8", timeout=300, cwd="/app")
+        md = (r.stdout or "").strip()
+        if not md.startswith("#"):
+            raise RuntimeError(f"보고서 생성 실패: {(r.stderr or md)[:300]}")
+        label = md.splitlines()[0].split("—")[-1].strip()
+        path = f"/tmp/monthly_{label}.md"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(md)
+        tok = os.getenv("TELEGRAM_FILEBOT_TOKEN", "").strip()
+        if tok:
+            with open(path, "rb") as f:
+                _rq.post(f"https://api.telegram.org/bot{tok}/sendDocument",
+                         data={"chat_id": "7762304100",
+                               "caption": f"📊 트레이딩봇 월간 보고서 {label} — 세션에서 '월간 보고서 리뷰'로 조정 판단 진행"},
+                         files={"document": (f"tradingbot_{label}.md", f)}, timeout=60)
+            log.info("📊 월간 보고서 전송 완료 (%s)", label)
+        else:
+            log.warning("📊 TELEGRAM_FILEBOT_TOKEN 미설정 — 보고서 전송 생략(%s)", path)
+    except Exception as e:
+        log.exception("❌ 월간 보고서 실행 중 예외: %s", e)
+
+
+# ───────────────────────────────────────────────────────────
 # 기존 저장 루틴
 # ───────────────────────────────────────────────────────────
 def scheduled_store(run_all: bool = False):
@@ -191,6 +222,14 @@ def main():
         scheduled_persist_supabase,
         CronTrigger(hour=6, minute=55, timezone=SEOUL),
         id="persist_supabase",
+        replace_existing=True,
+    )
+
+    # 매월 1일 07:30 — 지난달 트레이딩 월간 보고서(persist 완료 후)
+    scheduler.add_job(
+        scheduled_monthly_report,
+        CronTrigger(day=1, hour=7, minute=30, timezone=SEOUL),
+        id="monthly_report",
         replace_existing=True,
     )
 
