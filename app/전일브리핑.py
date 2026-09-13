@@ -184,8 +184,22 @@ def generate_daily_briefing(day: str | None = None) -> dict:
 
 def store_daily_briefing(briefing: dict):
     payload = json.dumps(briefing, ensure_ascii=False)
-    # 홈 전파용 (기존 /youtube 패스스루) — save_daily_data는 processed_time 없는 필드를 걸러서 안전
-    redis_client.hset("youtube_data", "global_briefing", payload)
+    # 홈 전파용 (기존 /youtube 패스스루) — save_daily_data는 processed_time 없는 필드를 걸러서 안전.
+    # ⚠️ 과거 날짜 백필 시 최신 브리핑을 되돌리지 않도록, 저장 날짜가 현재 해시보다 과거면 해시는 건너뛴다
+    #    (2026-08-09 실사고: 8/3 백필이 홈의 8/8 브리핑을 덮어씀). 히스토리 키는 항상 저장.
+    skip_hash = False
+    try:
+        raw = redis_client.hget("youtube_data", "global_briefing")
+        if raw:
+            cur = json.loads(raw.decode() if isinstance(raw, (bytes, bytearray)) else raw)
+            cur_date = str(cur.get("date") or "")
+            if cur_date and str(briefing["date"]) < cur_date:
+                skip_hash = True
+                log.info("⏭️ 과거 날짜(%s < %s) 백필 — global_briefing 해시는 유지", briefing["date"], cur_date)
+    except Exception:
+        pass
+    if not skip_hash:
+        redis_client.hset("youtube_data", "global_briefing", payload)
     # 히스토리 (30일)
     redis_client.set(f"news:daily_briefing:{briefing['date'].replace('-', '')}", payload, ex=30 * 86400)
     log.info("✅ 전일 브리핑 저장 완료 date=%s items=%d", briefing["date"], len(briefing["items"]))

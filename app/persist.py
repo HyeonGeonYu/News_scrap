@@ -565,50 +565,74 @@ def persist_today_data(
 
     log.info("news_data exists=%s key=%s", bool(news_data), news_key)
 
-    # 2) 매매 실행 기록 trade_records
-    trade_record_key = "trading:agent:CopyZannavi:u7c9f14d2a1:BYBIT:trade_records"
-
-    try:
-        trade_records_raw = redis_client.xrevrange(
-            trade_record_key,
-            max="+",
-            min="-",
-            count=5000,
-        )
-    except Exception as e:
-        log.warning("⚠️ trade_records 읽기 실패 key=%s err=%s", trade_record_key, e)
-        trade_records_raw = []
+    # 2) 매매 실행 기록 trade_records — 계좌별(BYBIT + MT5) 수집
+    #    (2026-08-20) MT5 계좌 추가: Redis 스트림 보존이 10일이라 여기서 영구 보존하지 않으면 소실됨.
+    #    id_prefix: 두 스트림의 entry id(ms-seq)가 충돌할 수 있어 MT5만 프리픽스(기존 BYBIT row id 호환 유지).
+    TRADE_ACCOUNTS = [
+        {
+            "account": "BYBIT",
+            "key": "trading:agent:CopyZannavi:u7c9f14d2a1:BYBIT:trade_records",
+            "id_prefix": "",
+            "signal_ns": ["s11", "s22", "bybit", "cryptod", "s1", "s2"],
+        },
+        {
+            "account": "MT5",
+            "key": "trading:agent:CopyZannaviMT5:u8f3a9c1e7b:MT5:trade_records",
+            "id_prefix": "mt5-",
+            "signal_ns": ["s11m", "s22m", "mt5", "fxd", "mt5d"],
+        },
+    ]
 
     trade_records = []
 
-    for msg_id, fields in trade_records_raw:
-        item = decode_hash(fields)
+    for acc in TRADE_ACCOUNTS:
+        try:
+            trade_records_raw = redis_client.xrevrange(
+                acc["key"],
+                max="+",
+                min="-",
+                count=5000,
+            )
+        except Exception as e:
+            log.warning("⚠️ trade_records 읽기 실패 key=%s err=%s", acc["key"], e)
+            trade_records_raw = []
 
-        item["_id"] = (
-            msg_id.decode() if isinstance(msg_id, (bytes, bytearray)) else str(msg_id)
-        )
+        for msg_id, fields in trade_records_raw:
+            item = decode_hash(fields)
 
-        trade_records.append(item)
+            item["_id"] = (
+                msg_id.decode() if isinstance(msg_id, (bytes, bytearray)) else str(msg_id)
+            )
+            item["_account"] = acc["account"]
+            item["_id_prefix"] = acc["id_prefix"]
+
+            trade_records.append(item)
 
     before_count = len(trade_records)
     trade_records = [r for r in trade_records if is_today_trade_record(r)]
 
     log.info(
-        "%s before_count=%d day_count=%d day=%s",
-        trade_record_key,
+        "trade_records(BYBIT+MT5) before_count=%d day_count=%d day=%s",
         before_count,
         len(trade_records),
         day,
     )
 
+    # thresholds 조회용 심볼은 기존 동작 유지(Bybit 계좌만 — OpenPctLog가 Bybit 페이지 데이터)
     signal_symbols = sorted({
         str(r.get("symbol", "")).upper()
         for r in trade_records
         if isinstance(r, dict) and r.get("symbol")
+        and str(r.get("_account") or "BYBIT") == "BYBIT"
     })
 
-    # ENTRY에 reasons_json이 없는 경우 원본 signals stream에서 보강
-    signals_by_id = load_signals_by_signal_id(namespace="bybit", search_back=5000)
+    # ENTRY에 reasons_json이 없는 경우 원본 signals stream에서 보강 —
+    # (2026-08-20) bybit 단일 → 전 채널 병합 (s11/s22 거래의 전략 태그가 소실되던 문제 수정)
+    signals_by_id = {}
+    for _ns in [n for a in TRADE_ACCOUNTS for n in a["signal_ns"]]:
+        _m = load_signals_by_signal_id(namespace=_ns, search_back=5000)
+        for _sid, _sig in _m.items():
+            signals_by_id.setdefault(_sid, _sig)
 
     # 3) 현재 자산
     asset_key_candidates = [
@@ -690,9 +714,14 @@ def persist_today_data(
                 or r.get("_id")
         )
 
-        row_id = str(r.get("_id") or signal_id or f"{day}-{idx}")
-
         raw_json = dict(r)
+
+        # ✅ 계좌 구분: 내부 필드는 빼고 raw_json.account로 노출, MT5는 row id 프리픽스
+        account = str(raw_json.pop("_account", "") or "BYBIT")
+        id_prefix = str(raw_json.pop("_id_prefix", "") or "")
+        raw_json["account"] = account
+
+        row_id = id_prefix + str(r.get("_id") or signal_id or f"{day}-{idx}")
 
         # 1) trade_record 자체 reasons 우선
         reasons = normalize_reasons(raw_json.get("reasons_json"))
@@ -739,6 +768,8 @@ def persist_today_data(
                 or raw_json.get("entry_reason")
                 or raw_json.get("exit_reason")
                 or (reasons[0] if reasons else None)
+                # ✅ (2026-08-20) executor가 lot에 박제한 전략 태그 — 신호 스트림(35일) 만료 후에도 귀속 유지
+                or raw_json.get("strategy_tag")
                 or raw_json.get("kind")
         )
 

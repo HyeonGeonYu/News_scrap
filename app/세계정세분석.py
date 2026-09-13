@@ -36,7 +36,7 @@ log = logging.getLogger(__name__)
 SEOUL = timezone("Asia/Seoul")
 
 # 프론트 newsParams.order / channels[].country 와 동일한 키
-COUNTRIES = ["Korea", "USA", "Japan", "China", "Germany", "UK", "India"]
+COUNTRIES = ["Korea", "USA", "Japan", "China", "Germany", "UK", "India", "HongKong"]
 
 
 # ───────────────────────────────────────────────────────────

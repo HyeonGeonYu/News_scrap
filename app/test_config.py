@@ -46,6 +46,13 @@ channels = [
             "keyword": "LIVE: News Night",
             "save_fields": "subtitle"
         },
+        {
+            "country": "HongKong",
+            "channel_handle": "@tvbnewsofficial",
+            "playlist_id": "PLKoXXVQa3yxBlMRa-1lq0gDur_RstqgLr",
+            "keyword": "TVB News at 7:30",
+            "save_fields": "subtitle"
+        },
     ]
 
 dmi_KR_STOCK_SYMBOLS = {
