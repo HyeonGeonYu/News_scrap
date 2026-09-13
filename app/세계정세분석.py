@@ -21,14 +21,12 @@ from datetime import datetime, timedelta
 
 from pytz import timezone
 from dotenv import load_dotenv
-from openai import OpenAI
 
+import llm  # 구독 Claude(claude -p) → 실패 시 OpenAI 폴백 (2026-09-12)
 from redis_client import redis_client
 
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -248,35 +246,21 @@ def _analyze_one_country(country: str, items: list) -> dict:
     else:
         text = "(최근 뉴스 요약 없음)"
 
-    completion = openai_client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": _COUNTRY_PROMPT_TMPL.replace("__C__", country)},
-            {"role": "user", "content": f"[{country} 뉴스 채널 보도]\n\n{text}"},
-        ],
-        response_format={
-            "type": "json_schema",
-            "json_schema": {"name": "country_state", "strict": True, "schema": _country_schema()},
-        },
+    # role=world_map — .env CLAUDE_MODEL_WORLD_MAP 로 모델 교체 가능
+    return llm.structured(
+        "world_map",
+        f"[{country} 뉴스 채널 보도]\n\n{text}",
+        _country_schema(),
+        system=_COUNTRY_PROMPT_TMPL.replace("__C__", country),
     )
-    return json.loads(completion.choices[0].message.content)
 
 
 def _analyze_relations(per_country: dict) -> list:
     """reduce: 7개국 전체를 보고 양자 관계만 종합."""
     input_text = _build_input_text(per_country)
-    completion = openai_client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": RELATIONS_PROMPT},
-            {"role": "user", "content": input_text},
-        ],
-        response_format={
-            "type": "json_schema",
-            "json_schema": {"name": "relations", "strict": True, "schema": _relations_schema()},
-        },
-    )
-    return json.loads(completion.choices[0].message.content).get("relations", [])
+    # role=world_reduce — 하루 1회지만 입력이 ~210k자로 가장 크다. .env CLAUDE_MODEL_WORLD_REDUCE 로 교체 가능
+    data = llm.structured("world_reduce", input_text, _relations_schema(), system=RELATIONS_PROMPT)
+    return data.get("relations", [])
 
 
 def analyze_world_state(days: int = 30) -> dict:
@@ -334,8 +318,33 @@ def store_world_state(result: dict):
         log.warning("⚠️ world_state Supabase 저장 실패(테이블 존재 확인): %s", e)
 
 
-def analyze_and_store_world_state(days: int = 30) -> dict:
-    """스케줄러/수동 실행 진입점."""
+def world_state_done_today() -> bool:
+    """오늘(KST) 이미 world_state 를 저장했으면 True. 조회 실패 시 False(=실행)."""
+    try:
+        from persist import get_supabase
+        now = datetime.now(SEOUL)
+        res = (get_supabase().table("world_state")
+               .select("updated_at").eq("week_start", _week_start(now)).limit(1).execute())
+        rows = res.data or []
+        ts = rows[0].get("updated_at") if rows else None
+        if not ts:
+            return False
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = SEOUL.localize(dt)
+        return dt.astimezone(SEOUL).date() == now.date()
+    except Exception as e:
+        log.warning("⚠️ world_state 당일 저장 여부 조회 실패(실행 진행): %s", e)
+        return False
+
+
+def analyze_and_store_world_state(days: int = 30, skip_if_done_today: bool = False) -> dict | None:
+    """스케줄러/수동 실행 진입점.
+    skip_if_done_today: 컨테이너 재시작(startup)에서 당일 분석이 이미 있으면 LLM 9회를 다시 태우지 않는다
+    (2026-09-12 구독 Claude 전환 — 재시작마다 한도 소모 방지)."""
+    if skip_if_done_today and world_state_done_today():
+        log.info("⏭️ world_state 오늘 이미 저장됨 — 재분석 스킵")
+        return None
     result = analyze_world_state(days)
     store_world_state(result)
     return result

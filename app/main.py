@@ -32,16 +32,17 @@ try:
 except Exception:
     log.warning("client_setname failed", exc_info=True)
 
-def run_world_state_analysis():
+def run_world_state_analysis(startup: bool = False):
     """
     daily_collections 최근 한 달(롤링 30일)을 입력으로 세계 정세(나라별 상태 + 양자 관계)를
     구조화 JSON으로 추출해 Supabase world_state(주차별 행)에 저장.
     persist 직후(일일 데이터 확정 후) 매일 실행 → 상태가 매일 조금씩 변동, 그 주 행은 주말에 freeze.
     실패해도 persist 흐름에 영향 없게 격리.
+    startup=True(컨테이너 기동)면 오늘 이미 저장된 경우 LLM 9회를 다시 태우지 않는다.
     """
     try:
-        log.info("🌍 world_state 분석 시작 (최근 30일)")
-        analyze_and_store_world_state(days=30)
+        log.info("🌍 world_state 분석 시작 (최근 30일, startup=%s)", startup)
+        analyze_and_store_world_state(days=30, skip_if_done_today=startup)
         log.info("🌍 world_state 분석 완료")
     except Exception as e:
         log.exception("❌ world_state 분석 중 예외: %s", e)
@@ -70,8 +71,8 @@ def startup_persist_supabase():
     except Exception as e:
         log.exception("❌ Supabase startup persist 실행 중 예외: %s", e)
 
-    # 일일 데이터 확정 후 세계 정세 분석 + 전일 브리핑
-    run_world_state_analysis()
+    # 일일 데이터 확정 후 세계 정세 분석 + 전일 브리핑 (기동 시엔 당일 완료분 스킵)
+    run_world_state_analysis(startup=True)
     run_daily_briefing()
 
 # ───────────────────────────────────────────────────────────

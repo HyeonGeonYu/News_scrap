@@ -20,13 +20,12 @@ from datetime import datetime, timedelta, time as dtime
 
 from pytz import timezone
 from dotenv import load_dotenv
-from openai import OpenAI
 
+import llm  # 구독 Claude(claude -p) → 실패 시 OpenAI 폴백 (2026-09-12)
 from redis_client import redis_client
 
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -161,18 +160,9 @@ def generate_daily_briefing(day: str | None = None) -> dict:
     blocks = [f"===== {c} 뉴스 채널 ({day}) =====\n{txt}" for c, txt in per_country.items()]
     log.info("🗞️ 브리핑 입력: day=%s countries=%s", day, list(per_country.keys()))
 
-    completion = openai_client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": BRIEFING_PROMPT},
-            {"role": "user", "content": "\n\n".join(blocks)},
-        ],
-        response_format={
-            "type": "json_schema",
-            "json_schema": {"name": "daily_briefing", "strict": True, "schema": _briefing_schema()},
-        },
-    )
-    items = json.loads(completion.choices[0].message.content).get("items", [])
+    # role=briefing — .env CLAUDE_MODEL_BRIEFING 로 모델 교체 가능
+    data = llm.structured("briefing", "\n\n".join(blocks), _briefing_schema(), system=BRIEFING_PROMPT)
+    items = data.get("items", [])
     items = sorted(items, key=lambda x: x.get("rank", 99))[:5]
 
     return {

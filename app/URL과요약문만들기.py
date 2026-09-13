@@ -9,13 +9,10 @@ import sys
 import asyncio
 from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 import isodate
-from openai import OpenAI
+import llm  # 구독 Claude(claude -p) → 실패 시 OpenAI 폴백 (2026-09-12)
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # .env에서 불러오기
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # .env에서 불러오기
-
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 from datetime import datetime
 
@@ -207,6 +204,32 @@ def search_video_ids(channel_id, playlist_id, keyword):
 # 한 영상에서 뽑을 최대 뉴스 개수
 MAX_NEWS_ITEMS = 5
 
+SUMMARY_SYSTEM = "너는 뉴스 방송 자막을 읽고 핵심 뉴스를 선별·요약하는 편집자다. 요청된 JSON 객체만 출력한다."
+
+
+def _summary_schema():
+    return {
+        "type": "object",
+        "properties": {
+            "items": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "rank": {"type": "integer"},
+                        "title": {"type": "string"},
+                        "summary": {"type": "string"},
+                        "points": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["rank", "title", "summary", "points"],
+                    "additionalProperties": False,
+                },
+            }
+        },
+        "required": ["items"],
+        "additionalProperties": False,
+    }
+
 
 def summarize_content(content):
     """
@@ -246,15 +269,12 @@ def summarize_content(content):
                 + "- JSON 외의 다른 텍스트는 절대 출력하지 마."
         )
 
-        completion = openai_client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            response_format={"type": "json_object"},
+        # Claude(구독) 우선, 실패 시 OpenAI(json_object, 종전 방식) 폴백 — llm.structured 내부에서 처리
+        data = llm.structured(
+            "summary", prompt, _summary_schema(), system=SUMMARY_SYSTEM,
+            openai_response_format={"type": "json_object"},
         )
-        raw = completion.choices[0].message.content
-        items = _coerce_summary_items(raw)
+        items = _coerce_summary_items(data)
         return items or None
 
     except Exception as e:
@@ -263,14 +283,17 @@ def summarize_content(content):
 
 
 def _coerce_summary_items(raw):
-    """LLM이 돌려준 JSON 문자열 -> 정규화된 items 리스트."""
+    """LLM이 돌려준 JSON(문자열 또는 이미 파싱된 dict/list) -> 정규화된 items 리스트."""
     if not raw:
         return []
-    try:
-        data = json.loads(raw)
-    except Exception as e:
-        print(f"요약 JSON 파싱 실패: {e}")
-        return []
+    if isinstance(raw, (dict, list)):
+        data = raw
+    else:
+        try:
+            data = json.loads(raw)
+        except Exception as e:
+            print(f"요약 JSON 파싱 실패: {e}")
+            return []
 
     if isinstance(data, list):
         arr = data

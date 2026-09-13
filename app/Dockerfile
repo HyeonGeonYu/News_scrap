@@ -60,6 +60,18 @@ RUN python -c "from faster_whisper import WhisperModel; WhisperModel('small', de
 
 RUN chown -R appuser:appuser /ms-playwright /opt/hf_cache
 
+# 4) 구독 Claude CLI (2026-09-12) — 네이티브 바이너리를 appuser 홈에 설치.
+#    인증은 app/.env 의 CLAUDE_CODE_OAUTH_TOKEN(`claude setup-token`, 1년). 모델은 CLAUDE_MODEL* (llm.py 참고).
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+USER appuser
+RUN curl -fsSL https://claude.ai/install.sh | bash \
+    && /home/appuser/.local/bin/claude --version
+USER root
+ENV PATH="/home/appuser/.local/bin:${PATH}"
+
 COPY app/ /app/
 RUN chown -R appuser:appuser /app
 
