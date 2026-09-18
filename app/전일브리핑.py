@@ -314,6 +314,10 @@ def briefing_already_done(day: str | None = None) -> bool:
     """해당 day 브리핑이 이미 있으면 True (재시작 시 LLM 재호출 방지)."""
     day = day or _target_day()
     try:
+        # 최종본은 항상 히스토리 키를 쓴다 → 있으면 완료. (홈 해시가 롤링으로 더 최신 날짜를 가리킬 때
+        #  해시만 보면 '미완료'로 오판해 재시작마다 옛 날짜 최종본을 다시 생성했음 — 2026-09-19 00:54 실측)
+        if redis_client.exists(f"news:daily_briefing:{day.replace('-', '')}"):
+            return True
         raw = redis_client.hget("youtube_data", "global_briefing")
         if raw:
             cur = json.loads(raw.decode() if isinstance(raw, (bytes, bytearray)) else raw)
