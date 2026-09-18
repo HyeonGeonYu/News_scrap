@@ -597,12 +597,29 @@ def persist_today_data(
             log.warning("⚠️ trade_records 읽기 실패 key=%s err=%s", acc["key"], e)
             trade_records_raw = []
 
+        # ✅ 정정값 오버레이 (2026-09-18): MT5 청산 pnl_usdt 가 (가격차×랏수)로 기록돼 계약크기·손익통화 환산이
+        #    빠졌던 결함의 백필값(tradingBot/tools/backfill_mt5_pnl.py)이 `<key>:override` 해시(field=entry id,
+        #    value=JSON)에 있으면 스트림 원본을 덮어쓴다. 없으면 종전 그대로. (/api/tradeRecords 도 동일 규칙)
+        overrides = {}
+        try:
+            for k, v in (redis_client.hgetall(f"{acc['key']}:override") or {}).items():
+                k = k.decode() if isinstance(k, (bytes, bytearray)) else str(k)
+                v = v.decode() if isinstance(v, (bytes, bytearray)) else v
+                ov = json.loads(v) if isinstance(v, str) else v
+                if isinstance(ov, dict):
+                    overrides[k] = ov
+        except Exception as e:
+            log.warning("⚠️ trade_records override 읽기 실패 key=%s err=%s", acc["key"], e)
+
         for msg_id, fields in trade_records_raw:
             item = decode_hash(fields)
 
             item["_id"] = (
                 msg_id.decode() if isinstance(msg_id, (bytes, bytearray)) else str(msg_id)
             )
+            ov = overrides.get(item["_id"])
+            if ov:
+                item.update(ov)
             item["_account"] = acc["account"]
             item["_id_prefix"] = acc["id_prefix"]
 

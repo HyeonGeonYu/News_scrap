@@ -151,11 +151,24 @@ def _collect_day_summaries(day: str) -> dict:
 # ───────────────────────────────────────────────────────────
 # 2) LLM 선별 + 저장
 # ───────────────────────────────────────────────────────────
+# 입력 국가가 이보다 적으면 '글로벌' 브리핑이 아니라 한 나라 뉴스의 재탕이 된다.
+# (2026-09-17 실사고: 수집 루프 장애로 홍콩 1개국만 남았는데 3차 폴백이 그걸로 브리핑을 만들어
+#  홈이 홍콩·중국 뉴스로 도배됨) → 생성하지 않고 직전 브리핑을 유지한다.
+MIN_BRIEFING_COUNTRIES = 2
+
+
+class BriefingInputTooThin(RuntimeError):
+    pass
+
+
 def generate_daily_briefing(day: str | None = None) -> dict:
     day = day or _target_day()
     per_country = _collect_day_summaries(day)
     if not per_country:
         raise RuntimeError(f"브리핑 입력 없음 (day={day})")
+    if len(per_country) < MIN_BRIEFING_COUNTRIES:
+        raise BriefingInputTooThin(
+            f"브리핑 입력 국가 부족 (day={day}, countries={list(per_country)}, 최소 {MIN_BRIEFING_COUNTRIES})")
 
     blocks = [f"===== {c} 뉴스 채널 ({day}) =====\n{txt}" for c, txt in per_country.items()]
     log.info("🗞️ 브리핑 입력: day=%s countries=%s", day, list(per_country.keys()))
@@ -168,6 +181,7 @@ def generate_daily_briefing(day: str | None = None) -> dict:
     return {
         "date": day,
         "generated_at": datetime.now(SEOUL).isoformat(),
+        "countries_in": list(per_country.keys()),  # 실제 입력된 국가 (부분 브리핑 판별용)
         "items": items,
     }
 
@@ -214,7 +228,11 @@ def generate_and_store_daily_briefing(force: bool = False) -> dict | None:
     if not force and briefing_already_done(day):
         log.info("⏭️ 전일 브리핑 이미 생성됨 (day=%s) — 스킵", day)
         return None
-    briefing = generate_daily_briefing(day)
+    try:
+        briefing = generate_daily_briefing(day)
+    except BriefingInputTooThin as e:
+        log.warning("⚠️ %s — 직전 브리핑 유지", e)
+        return None
     store_daily_briefing(briefing)
     return briefing
 

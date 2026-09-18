@@ -89,16 +89,51 @@ def get_transcript_text(video_id, headless=True):
 
         print(f"[{video_id}] 다운로드 완료, Whisper 변환 시작...")
         try:
-            model = _get_whisper_model()
-            segments, _ = model.transcribe(audio_files[0], beam_size=5)
-            transcript = " ".join(seg.text.strip() for seg in segments)
-            result = transcript.strip() or None
+            result = _transcribe_chunked(audio_files[0], video_id)
             if result:
                 print(f"[{video_id}] Whisper 변환 완료 ({len(result)}자)")
             return result
         except Exception as e:
             print(f"Whisper 변환 실패 ({video_id}): {e}")
             return None
+
+
+# 긴 방송(1~2시간)을 한 번에 transcribe 하면 faster-whisper 가 오디오 전체의 STFT 를
+# complex128 로 한꺼번에 계산해 RSS 가 3GB 를 넘고 컨테이너가 OOM-kill(137) 된다.
+# (2026-09-13~17: KBS 1h47m·56m 영상에서 하루 수백 회 재시작 루프 → 타국 수집 전부 차단,
+#  전일 브리핑이 홍콩 1개국 입력으로 생성되는 사고)
+# → 오디오를 메모리에 한 번만 디코드한 뒤 WHISPER_CHUNK_SEC 단위로 잘라 순차 변환한다.
+#   20분 조각의 특징추출 피크는 1GB 미만. 언어는 첫 조각에서 판정해 나머지 조각에 고정
+#   (조각마다 재판정하면 중간 외국어 인용 구간에서 언어가 튄다).
+WHISPER_CHUNK_SEC = 20 * 60
+WHISPER_SR = 16000
+
+
+def _transcribe_chunked(audio_path, video_id):
+    from faster_whisper.audio import decode_audio
+
+    model = _get_whisper_model()
+    audio = decode_audio(audio_path, sampling_rate=WHISPER_SR)
+    total = len(audio)
+    step = WHISPER_CHUNK_SEC * WHISPER_SR
+    n_chunks = max(1, -(-total // step))
+    print(f"[{video_id}] 오디오 {total / WHISPER_SR / 60:.1f}분 → {n_chunks}조각({WHISPER_CHUNK_SEC // 60}분) 순차 변환")
+
+    language = None
+    texts = []
+    for i in range(n_chunks):
+        chunk = audio[i * step:(i + 1) * step]
+        if len(chunk) < WHISPER_SR:  # 1초 미만 꼬리는 무시
+            continue
+        segments, info = model.transcribe(chunk, beam_size=5, language=language)
+        if language is None:
+            language = info.language
+        piece = " ".join(seg.text.strip() for seg in segments)
+        texts.append(piece)
+        print(f"[{video_id}] 조각 {i + 1}/{n_chunks} 완료 ({len(piece)}자, lang={language})")
+    del audio
+    transcript = " ".join(t for t in texts if t).strip()
+    return transcript or None
 
 def open_transcript_ui(page):
     try:

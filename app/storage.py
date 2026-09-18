@@ -24,6 +24,35 @@ def convert_to_kst(published_utc_str):
     published_kst = published_utc.replace(tzinfo=utc).astimezone(seoul_tz)
     return published_kst
 
+
+# ── 독약 영상 가드 ─────────────────────────────────────────────────────────
+# STT 도중 프로세스가 OOM 등으로 죽으면 except 로 못 잡는다. restart 정책 → startup_runs 가
+# 수집을 처음부터 다시 돌려 같은 영상을 또 받고 또 죽는 무한루프가 됐다(2026-09-16 631회,
+# 채널 1번 Korea 에서 막혀 나머지 7개국이 하루 종일 수집 안 됨). 시도 전에 Redis 에 횟수를
+# 남기고, STT_MAX_ATTEMPTS 를 넘긴 영상은 건너뛰어 description 폴백으로 흘려보낸다.
+STT_MAX_ATTEMPTS = 2
+STT_ATTEMPT_TTL = 2 * 86400
+
+
+def get_transcript_guarded(video_id):
+    key = f"news:stt_attempt:{video_id}"
+    try:
+        n = int(redis_client.incr(key))
+        redis_client.expire(key, STT_ATTEMPT_TTL)
+    except Exception as e:
+        print(f"[{video_id}] STT 시도횟수 기록 실패(가드 없이 진행): {e}")
+        n = 1
+    if n > STT_MAX_ATTEMPTS:
+        print(f"⛔ [{video_id}] STT {n - 1}회 미완료 이력 — 건너뜀 (description 폴백)")
+        return None
+    transcript = get_transcript_text(video_id)
+    if transcript:
+        try:
+            redis_client.delete(key)
+        except Exception:
+            pass
+    return transcript
+
 def fetch_and_store_youtube_data():
     try:
 
@@ -54,7 +83,7 @@ def fetch_and_store_youtube_data():
                                 print(f"❌ {country} — video_id 추출 실패, 스킵합니다.")
                                 continue
                             video_id = video_id_list[0]
-                            transcript = get_transcript_text(video_id)
+                            transcript = get_transcript_guarded(video_id)
                             if not transcript:
                                 print(f"❌ {country} — transcript 가져오기 실패, 스킵합니다.")
                                 continue
@@ -105,7 +134,7 @@ def fetch_and_store_youtube_data():
             parsed = urlparse(video_data['url'])
             video_id = parse_qs(parsed.query).get('v', [None])[0]
             if video_id:
-                transcript = get_transcript_text(video_id)
+                transcript = get_transcript_guarded(video_id)
                 if transcript:
                     video_data['summary_content'] = transcript
                 else:

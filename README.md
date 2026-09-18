@@ -7,9 +7,15 @@ docker run -d --name news-scrap `
   -e TRADING_REDIS_URL=redis://redis:6379/0 `
   -e TZ=Asia/Seoul `
   --shm-size=1g `
+  --memory 4g --memory-swap 4g `
   --restart unless-stopped `
   --gpus all `
   news-scrap
+
+# 실제 운영 기동은 infra/wsl/news-scrap.sh (WSL docker, host net, --memory 4g). 위는 참고용.
+# ⚠️ Whisper 는 20분 조각 순차 변환(URL과요약문만들기._transcribe_chunked). 통째 변환은 1~2시간 방송에서
+#    RSS 3GB+ → OOM-kill → restart 루프(2026-09-16 631회)로 타국 수집까지 막았음. storage.get_transcript_guarded 가
+#    같은 영상 STT 를 2회까지만 허용(Redis news:stt_attempt:<video_id>).
 
 # ⚠️ --network tradingbot_default + TRADING_REDIS_URL=redis://redis:6379/0 필수:
 #    트레이딩 데이터는 tradingBot 로컬 Redis(2026-07-16 이전)에서 읽는다.
