@@ -186,6 +186,107 @@ def generate_daily_briefing(day: str | None = None) -> dict:
     }
 
 
+# ───────────────────────────────────────────────────────────
+# 2-b) 오늘 브리핑(롤링) — 2026-09-19
+#   06:55 최종본(전일)만 있으면 홈 브리핑이 하루 종일 '어제' 라벨이고 자정을 넘기면 '이틀 전'이 된다.
+#   오늘(KST 달력일) 요약이 MIN_ROLLING_COUNTRIES 개국 이상 모이면 낮에도 홈 브리핑을 다시 만든다.
+#   - 입력 기준은 save_daily_data 와 동일(processed_time 의 KST 달력일 == 오늘) → 06:55 최종본과 같은 재료.
+#   - 히스토리 키(news:daily_briefing:*)는 쓰지 않는다(최종본만). 해시(global_briefing)만 갱신, rolling=True 표기.
+#   - 입력 서명(sig)이 같으면 스킵, 직전 롤링 후 ROLLING_MIN_INTERVAL_MIN 안이면 스킵 → 하루 3~5회.
+#   - 최소 4개국: 새벽(홍콩·인도·영국 3개국)에 전날 최종본을 밀어내지 않도록. 한국 뉴스광장(08시)까지 오면 시작.
+# ───────────────────────────────────────────────────────────
+MIN_ROLLING_COUNTRIES = int(os.getenv("ROLLING_MIN_COUNTRIES", "4"))
+ROLLING_MIN_INTERVAL_MIN = int(os.getenv("ROLLING_MIN_INTERVAL_MIN", "120"))
+
+ROLLING_PROMPT = (
+    BRIEFING_PROMPT
+    .replace("아래는 어제 하루 동안", "아래는 오늘 지금까지")
+    .replace("'어제 세계에서 핵심적으로 봐야 할 뉴스 5개'", "'오늘 세계에서 핵심적으로 봐야 할 뉴스 5개'")
+    + "\n일부 나라의 보도는 아직 들어오지 않았을 수 있다. 입력에 있는 나라의 보도만 근거로 삼고, 없는 나라를 추정하지 마라."
+)
+
+
+def _today_calendar() -> str:
+    return datetime.now(SEOUL).strftime("%Y-%m-%d")
+
+
+def _collect_live_today(day: str) -> tuple[dict, dict]:
+    """live youtube_data 해시에서 processed_time 의 KST 달력일 == day 인 나라만.
+    반환: ({country: summary_text}, {country: processed_time})"""
+    from pytz import utc as _utc
+    per_country, proc = {}, {}
+    live = redis_client.hgetall("youtube_data") or {}
+    for cb, jb in live.items():
+        c = cb.decode() if isinstance(cb, (bytes, bytearray)) else str(cb)
+        if c not in COUNTRIES:
+            continue
+        try:
+            info = json.loads(jb.decode() if isinstance(jb, (bytes, bytearray)) else jb)
+            pt = info.get("processed_time")
+            d = _utc.localize(datetime.strptime(pt, "%Y-%m-%dT%H:%M:%SZ")).astimezone(SEOUL).strftime("%Y-%m-%d")
+            if d == day and info.get("summary_result"):
+                per_country[c] = str(info["summary_result"])
+                proc[c] = pt
+        except Exception:
+            continue
+    return per_country, proc
+
+
+def _current_briefing() -> dict | None:
+    try:
+        raw = redis_client.hget("youtube_data", "global_briefing")
+        if raw:
+            return json.loads(raw.decode() if isinstance(raw, (bytes, bytearray)) else raw)
+    except Exception:
+        pass
+    return None
+
+
+def generate_and_store_rolling_briefing(force: bool = False) -> dict | None:
+    """스케줄러(매시 수집 직후) 진입점. 조건 미달·변경 없음·간격 미만이면 None."""
+    day = _today_calendar()
+    per_country, proc = _collect_live_today(day)
+    if len(per_country) < MIN_ROLLING_COUNTRIES:
+        log.info("⏭️ 오늘 브리핑: 입력 %d개국 < %d — 스킵 (day=%s)", len(per_country), MIN_ROLLING_COUNTRIES, day)
+        return None
+    sig = "|".join(f"{c}:{proc[c]}" for c in sorted(per_country))
+    cur = _current_briefing() or {}
+    if cur.get("date") and day < str(cur.get("date")):
+        log.info("⏭️ 오늘 브리핑: 해시가 더 최신 날짜(%s) — 스킵", cur.get("date"))
+        return None
+    if not force and cur.get("date") == day and cur.get("rolling"):
+        if cur.get("sig") == sig:
+            log.info("⏭️ 오늘 브리핑: 새 입력 없음 — 스킵 (day=%s, %d개국)", day, len(per_country))
+            return None
+        try:
+            gen = datetime.fromisoformat(str(cur.get("generated_at")))
+            if gen.tzinfo is None:
+                gen = SEOUL.localize(gen)
+            mins = (datetime.now(SEOUL) - gen).total_seconds() / 60
+            if mins < ROLLING_MIN_INTERVAL_MIN:
+                log.info("⏭️ 오늘 브리핑: 직전 갱신 %.0f분 전(<%d분) — 스킵", mins, ROLLING_MIN_INTERVAL_MIN)
+                return None
+        except Exception:
+            pass
+
+    blocks = [f"===== {c} 뉴스 채널 ({day}) =====\n{txt}" for c, txt in per_country.items()]
+    log.info("🗞️ 오늘 브리핑 입력: day=%s countries=%s", day, list(per_country.keys()))
+    # role=briefing_rolling — .env CLAUDE_MODEL_BRIEFING_ROLLING 로 모델 교체 가능
+    data = llm.structured("briefing_rolling", "\n\n".join(blocks), _briefing_schema(), system=ROLLING_PROMPT)
+    items = sorted(data.get("items", []), key=lambda x: x.get("rank", 99))[:5]
+    briefing = {
+        "date": day,
+        "generated_at": datetime.now(SEOUL).isoformat(),
+        "countries_in": list(per_country.keys()),
+        "items": items,
+        "rolling": True,
+        "sig": sig,
+    }
+    redis_client.hset("youtube_data", "global_briefing", json.dumps(briefing, ensure_ascii=False))
+    log.info("✅ 오늘 브리핑 저장 date=%s countries=%d items=%d", day, len(per_country), len(items))
+    return briefing
+
+
 def store_daily_briefing(briefing: dict):
     payload = json.dumps(briefing, ensure_ascii=False)
     # 홈 전파용 (기존 /youtube 패스스루) — save_daily_data는 processed_time 없는 필드를 걸러서 안전.
@@ -216,7 +317,8 @@ def briefing_already_done(day: str | None = None) -> bool:
         raw = redis_client.hget("youtube_data", "global_briefing")
         if raw:
             cur = json.loads(raw.decode() if isinstance(raw, (bytes, bytearray)) else raw)
-            return cur.get("date") == day
+            # 롤링(오늘 브리핑)은 최종본이 아니므로 '완료'로 치지 않는다 (2026-09-19)
+            return cur.get("date") == day and not cur.get("rolling")
     except Exception:
         pass
     return False

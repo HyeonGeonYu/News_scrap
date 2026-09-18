@@ -53,6 +53,43 @@ def get_transcript_guarded(video_id):
             pass
     return transcript
 
+# ── YouTube search.list 쿼터 예산 ────────────────────────────────────────────
+# 2026-09-19 수집 창을 11~22시 → 24시간으로 넓히면서 search.list(100유닛/회)를 제한:
+#   · 짝수 시각에만 허용(2시간 간격) + 나라별 하루 YT_SEARCH_MAX_PER_DAY 회 (Redis news:yt_search:<국가>:<날짜>)
+#   · 재생목록 조회(1유닛)가 1차이고, 후보가 24h 이내면 search 자체를 안 한다(URL과요약문만들기.search_video_ids)
+#   최악(전 채널 미업로드): 6회 × 100유닛 × 10 키워드슬롯 = 6,000 + 재생목록·videos ≈ 7,000 < 10,000.
+#   영국(BBC Newscast 04:30 업로드)·미국(PBS 09:24)은 재생목록이 오래된 순이라 search 로 잡는다 → 06시·10시 검색에서 발견.
+YT_SEARCH_MAX_PER_DAY = int(os.getenv("YT_SEARCH_MAX_PER_DAY", "6"))
+YT_SEARCH_HOUR_STEP = int(os.getenv("YT_SEARCH_HOUR_STEP", "2"))
+
+
+def _search_budget_key(country):
+    return f"news:yt_search:{country}:{datetime.now(timezone('Asia/Seoul')).strftime('%Y%m%d')}"
+
+
+def _search_budget_ok(country) -> bool:
+    now = datetime.now(timezone("Asia/Seoul"))
+    if YT_SEARCH_HOUR_STEP > 1 and now.hour % YT_SEARCH_HOUR_STEP != 0:
+        return False
+    try:
+        n = int(redis_client.get(_search_budget_key(country)) or 0)
+    except Exception:
+        return True
+    if n >= YT_SEARCH_MAX_PER_DAY:
+        print(f"⏸️ {country} — 오늘 search.list 예산 소진({n}/{YT_SEARCH_MAX_PER_DAY}), 재생목록만 조회")
+        return False
+    return True
+
+
+def _search_budget_incr(country, n=1):
+    try:
+        key = _search_budget_key(country)
+        redis_client.incrby(key, n)
+        redis_client.expire(key, 2 * 86400)
+    except Exception as e:
+        print(f"⚠️ {country} — search 예산 기록 실패: {e}")
+
+
 def fetch_and_store_youtube_data():
     try:
 
@@ -117,8 +154,11 @@ def fetch_and_store_youtube_data():
                 print(f"💡 {country} — 기존 데이터 없음, 새로 조회합니다.")
 
                 # existing_data에서 processed_time 가져오기
-            # 🔍 새 영상 서치
-            video_data = get_latest_video_data(channel)
+            # 🔍 새 영상 서치 — 재생목록 우선, search.list 는 나라별 하루 YT_SEARCH_MAX_PER_DAY 회까지(쿼터 보호)
+            stats = {}
+            video_data = get_latest_video_data(channel, allow_search=_search_budget_ok(country), stats=stats)
+            if stats.get("search_calls"):
+                _search_budget_incr(country, stats["search_calls"])
             if not video_data:
                 print(f"❌ {country} — 영상 데이터를 찾을 수 없음, 스킵합니다.")
                 continue

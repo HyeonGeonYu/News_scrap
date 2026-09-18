@@ -8,7 +8,8 @@
 #   CLAUDE_MODEL_SUMMARY=…                 # 나라별 자막 요약 (하루 8회, 자막 3k~50k자)
 #   CLAUDE_MODEL_WORLD_MAP=…               # 세계정세 나라별 (하루 8회, 12k~33k자)
 #   CLAUDE_MODEL_WORLD_REDUCE=…            # 세계정세 관계 (하루 1회, ~210k자 — 최대 단일 호출)
-#   CLAUDE_MODEL_BRIEFING=…                # 전일 브리핑 (하루 1회, ~10k자)
+#   CLAUDE_MODEL_BRIEFING=…                # 전일 브리핑 최종본 (하루 1회, ~10k자)
+#   CLAUDE_MODEL_BRIEFING_ROLLING=…        # 오늘 브리핑 롤링 (하루 3~5회, ~10k자) — 2026-09-19
 #   CLAUDE_DISABLE=1                       # Claude 전부 끄고 OpenAI만
 #   CLAUDE_THINKING_TOKENS=0               # 확장사고 토큰 상한(0=끔, 비우면 CLI 기본)
 #   CLAUDE_EFFORT=low|medium|high          # 비우면 CLI 기본

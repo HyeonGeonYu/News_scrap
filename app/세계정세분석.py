@@ -318,8 +318,12 @@ def store_world_state(result: dict):
         log.warning("⚠️ world_state Supabase 저장 실패(테이블 존재 확인): %s", e)
 
 
+WORLD_STATE_FRESH_HOURS = 20  # 06:55 정기 실행 간격(24h)보다 짧게 — 자정~06:55 사이 재시작도 재분석 안 함
+
+
 def world_state_done_today() -> bool:
-    """오늘(KST) 이미 world_state 를 저장했으면 True. 조회 실패 시 False(=실행)."""
+    """최근 WORLD_STATE_FRESH_HOURS 안에 world_state 를 저장했으면 True. 조회 실패 시 False(=실행).
+    (처음엔 'KST 달력일 같음'이었는데 자정 넘겨 재시작하면 06:55 전에 9회를 또 태웠음 — 2026-09-19 00:49 실측)"""
     try:
         from persist import get_supabase
         now = datetime.now(SEOUL)
@@ -332,9 +336,10 @@ def world_state_done_today() -> bool:
         dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
         if dt.tzinfo is None:
             dt = SEOUL.localize(dt)
-        return dt.astimezone(SEOUL).date() == now.date()
+        age_h = (now - dt.astimezone(SEOUL)).total_seconds() / 3600
+        return age_h < WORLD_STATE_FRESH_HOURS
     except Exception as e:
-        log.warning("⚠️ world_state 당일 저장 여부 조회 실패(실행 진행): %s", e)
+        log.warning("⚠️ world_state 최근 저장 여부 조회 실패(실행 진행): %s", e)
         return False
 
 

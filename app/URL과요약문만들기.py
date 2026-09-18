@@ -198,6 +198,7 @@ def extract_text(j):
 
 
 def find_best_video(data, keyword, from_playlist=False):
+    """키워드와 제목이 맞고 길이 5분~2시간인 첫 영상 → (video_id, publishedAt UTC 문자열). 없으면 (None, None)."""
     for item in data.get("items", []):
 
         vid_id = None
@@ -214,26 +215,51 @@ def find_best_video(data, keyword, from_playlist=False):
             try:
                 duration = isodate.parse_duration(video["contentDetails"]["duration"])
                 if 300 <= duration.total_seconds() <= 7200:
-                    return vid_id
+                    return vid_id, video["snippet"].get("publishedAt")
             except Exception as e:
                 print(f"⏱ duration 파싱 실패: {e}")
-    return None
-def search_video_ids(channel_id, playlist_id, keyword):
+    return None, None
+
+
+# 재생목록 후보가 이 시간보다 오래됐으면 search.list 로 보강한다.
+# (BBC Newscast 재생목록은 오래된 순이라 앞 10개가 2025년 영상, PBS 도 최신 편이 앞쪽에 없음 — 2026-09-19 실측)
+PLAYLIST_FRESH_HOURS = 24
+
+
+def _age_hours(published_utc_str):
+    try:
+        dt = datetime.strptime(published_utc_str, "%Y-%m-%dT%H:%M:%SZ")
+        return (datetime.utcnow() - dt).total_seconds() / 3600
+    except Exception:
+        return float("inf")
+def search_video_ids(channel_id, playlist_id, keyword, allow_search=True, stats=None):
+    """재생목록(1유닛) 먼저. 후보가 없거나 PLAYLIST_FRESH_HOURS 보다 오래됐을 때만 search.list(100유닛) 보강.
+    2026-09-19 수집 창 24시간화에 맞춘 쿼터 절감 — 종전엔 매 시도마다 search+playlist 둘 다(≈101유닛)라
+    11시간 창에서도 하루 쿼터(10,000) 근처였다. allow_search=False 면 재생목록만(호출측이 시간대·예산으로 제어).
+    stats(dict)가 오면 stats['search_calls'] 에 search 호출 수를 누적. 반환 후보 중 최신은 호출측이 고른다."""
     results = []
-    for url, id_param in [
-        ("https://www.googleapis.com/youtube/v3/search", {"channelId": channel_id, "q": keyword}),
-        ("https://www.googleapis.com/youtube/v3/playlistItems", {"playlistId": playlist_id}),
-    ]:
-        params = {
-            "part": "snippet",
-            "maxResults": 5,
-            "key": YOUTUBE_API_KEY,
-            **id_param
-        }
-        resp = requests.get(url, params=params)
-        vid_id = find_best_video(resp.json(), keyword, from_playlist="playlistId" in id_param)
-        if vid_id:
-            results.append(vid_id)
+    resp = requests.get(
+        "https://www.googleapis.com/youtube/v3/playlistItems",
+        params={"part": "snippet", "maxResults": 10, "key": YOUTUBE_API_KEY, "playlistId": playlist_id},
+    )
+    vid_id, pub = find_best_video(resp.json(), keyword, from_playlist=True)
+    if vid_id:
+        results.append(vid_id)
+        if _age_hours(pub) <= PLAYLIST_FRESH_HOURS:
+            return results
+    if not allow_search:
+        return results
+    if stats is not None:
+        stats["search_calls"] = stats.get("search_calls", 0) + 1
+    # order=date: 기본(relevance)은 며칠 지난 편을 앞에 두어 최신 편을 놓친다(PBS 9/17편 있는데 9/16편 반환 — 2026-09-19 실측)
+    resp = requests.get(
+        "https://www.googleapis.com/youtube/v3/search",
+        params={"part": "snippet", "maxResults": 25, "order": "date", "type": "video",
+                "key": YOUTUBE_API_KEY, "channelId": channel_id, "q": keyword},
+    )
+    vid_id, _ = find_best_video(resp.json(), keyword, from_playlist=False)
+    if vid_id and vid_id not in results:
+        results.append(vid_id)
     return results
 
 # 한 영상에서 뽑을 최대 뉴스 개수
@@ -442,7 +468,7 @@ def find_similar_video_title_id(data, keyword, similarity_threshold=0.9,from_pla
                         continue
     return None  # 찾는 영상이 없을 경우
 
-def get_latest_video_data(channel, headless=True):
+def get_latest_video_data(channel, headless=True, allow_search=True, stats=None):
     channel_id = get_channel_id(channel["channel_handle"])
     if not channel_id:
         print("❌ 채널 ID를 찾을 수 없습니다.")
@@ -455,7 +481,7 @@ def get_latest_video_data(channel, headless=True):
 
     for i, keyword in enumerate(keywords):
         playlist_id = playlist_ids[i] if i < len(playlist_ids) else playlist_ids[-1]
-        for video_id in search_video_ids(channel_id, playlist_id, keyword):
+        for video_id in search_video_ids(channel_id, playlist_id, keyword, allow_search=allow_search, stats=stats):
             video = get_video_details(video_id)
             if not video:
                 continue

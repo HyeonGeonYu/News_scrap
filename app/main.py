@@ -17,7 +17,7 @@ from storage import (
     save_daily_data,
 )
 from 세계정세분석 import analyze_and_store_world_state
-from 전일브리핑 import generate_and_store_daily_briefing
+from 전일브리핑 import generate_and_store_daily_briefing, generate_and_store_rolling_briefing
 from redis_client import redis_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -57,6 +57,15 @@ def run_daily_briefing():
         log.info("🗞️ 전일 글로벌 브리핑 완료")
     except Exception as e:
         log.exception("❌ 전일 브리핑 생성 중 예외: %s", e)
+
+
+def run_rolling_briefing():
+    """오늘(KST 달력일) 요약이 4개국 이상 모이면 낮에도 홈 브리핑을 갱신(2026-09-19).
+    새 입력 없음·직전 갱신 2h 이내면 내부에서 스킵 → 하루 3~5회. 실패해도 수집 흐름에 영향 없게 격리."""
+    try:
+        generate_and_store_rolling_briefing()
+    except Exception as e:
+        log.exception("❌ 오늘 브리핑(롤링) 중 예외: %s", e)
 
 
 def startup_persist_supabase():
@@ -133,16 +142,17 @@ def scheduled_store(run_all: bool = False):
     데일리 스냅샷)를 막으면 다음날 persist가 빈 데이터가 됨(2026-07-04 실제 발생)."""
     now = datetime.now(SEOUL)
 
-    # 유튜브: 11~15시
+    # 유튜브: 24시간 매시 (2026-09-19). 종전 11~22시 창은 새벽·아침 업로드(홍콩 00시·인도 01시·한국 08시·미국 09시)를
+    # 11시까지 묶어 두어 3~11시간 지연을 만들었다. 쿼터는 재생목록 우선 + search 예산(storage.YT_SEARCH_MAX_PER_DAY)으로 보호.
     try:
-        if run_all or (11 <= now.hour < 22):
-            log.info("⏰ YouTube 데이터 저장 (%s)", now.strftime("%Y-%m-%d %H:%M"))
-            youtube_result = fetch_and_store_youtube_data()
-            log.info(str(youtube_result))
-        else:
-            log.info("⏭️ YouTube 저장 시간대 아님 (run_all=False)")
+        log.info("⏰ YouTube 데이터 저장 (%s)", now.strftime("%Y-%m-%d %H:%M"))
+        youtube_result = fetch_and_store_youtube_data()
+        log.info(str(youtube_result))
     except Exception as e:
         log.exception("❌ YouTube 저장 중 예외(다음 단계 계속): %s", e)
+
+    # 오늘 브리핑(롤링) — 오늘 요약이 충분히 모이면 홈 브리핑을 낮에도 갱신
+    run_rolling_briefing()
 
     try:
         log.info("📈 chart data 저장 시작...")

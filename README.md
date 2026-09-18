@@ -35,3 +35,14 @@ docker run -d --name news-scrap `
 # 연결 점검(작은 호출 1회): docker exec -e CLAUDE_MODEL=haiku news-scrap python llm.py
 # 재시작 시 세계정세 분석은 당일 저장분이 있으면 스킵(한도 보호). 강제: python 세계정세분석.py
 
+# ── 신선도 개선 (2026-09-19) ────────────────────────────────────────────────
+# 1) 유튜브 수집 창 11~22시 → 24시간 매시. 새벽·아침 업로드(홍콩 00시·인도 01시·한국 08시·미국 09시)가
+#    11시까지 대기하던 3~11시간 지연 제거. 쿼터는 재생목록(1유닛) 우선(후보가 24h 이내면 search 생략) +
+#    search.list(100유닛, order=date)는 짝수 시각에만·나라별 하루 YT_SEARCH_MAX_PER_DAY(기본 6)회
+#    (Redis news:yt_search:<국가>:<날짜>). 최악 ≈7,000유닛 < 10,000. BBC·PBS 재생목록은 오래된 순이라 search 로 잡힘.
+# 2) 오늘 브리핑(롤링): 오늘(KST 달력일) 요약이 ROLLING_MIN_COUNTRIES(기본 4)개국 이상이면 매시 수집 직후
+#    홈 브리핑(youtube_data.global_briefing)을 다시 생성(rolling=true, countries_in, generated_at). 새 입력 없음·
+#    직전 갱신 ROLLING_MIN_INTERVAL_MIN(기본 120)분 이내면 스킵 → 하루 3~5회. 06:55 최종본(전일)은 종전대로
+#    히스토리(news:daily_briefing:*)까지 저장하며 롤링을 대체. 모델: CLAUDE_MODEL_BRIEFING_ROLLING.
+#    프론트(hyeongeonnoil GlobalBriefingCard)는 rolling 여부로 "오늘/전일 글로벌 브리핑" 제목·갱신 시각 표시.
+
