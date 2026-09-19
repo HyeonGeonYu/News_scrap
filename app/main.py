@@ -141,6 +141,42 @@ def scheduled_monthly_report():
 
 
 # ───────────────────────────────────────────────────────────
+# 트레이딩봇 주간 보고서 (2026-09-19 도입) — 매주 월요일 07:30, 직전 주(월~일) 셀별 실측 +
+# 구독 Opus 셀별 평가(조기 경보). 텔레그램 파일봇 + Redis(trading:reports weekly:{label}) 발행.
+# ───────────────────────────────────────────────────────────
+def scheduled_weekly_report():
+    import os, subprocess, requests as _rq
+    try:
+        log.info("🗓️ 주간 보고서 생성 실행")
+        r = subprocess.run(["python", "weekly_report.py"], capture_output=True,
+                           encoding="utf-8", timeout=1200, cwd="/app")   # Opus 2콜 포함
+        md = (r.stdout or "").strip()
+        if not md.startswith("#"):
+            raise RuntimeError(f"보고서 생성 실패: {(r.stderr or md)[:300]}")
+        head = md.splitlines()[0]
+        label = head.split("—")[-1].strip().split(" ")[0]   # '2026-W37'
+        try:
+            from report_store import publish_report
+            publish_report("weekly", label, md)
+            log.info("🗓️ 주간 보고서 Redis 발행 완료 (weekly:%s)", label)
+        except Exception as pe:
+            log.exception("❌ 주간 보고서 Redis 발행 실패(텔레그램 전송은 계속): %s", pe)
+        tok = os.getenv("TELEGRAM_FILEBOT_TOKEN", "").strip()
+        if tok:
+            path = f"/tmp/weekly_{label}.md"
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(md)
+            with open(path, "rb") as f:
+                _rq.post(f"https://api.telegram.org/bot{tok}/sendDocument",
+                         data={"chat_id": "7762304100",
+                               "caption": f"🗓️ 트레이딩봇 주간 보고서 {label} — 사이트/앱 '보고서'에서도 열람"},
+                         files={"document": (f"tradingbot_weekly_{label}.md", f)}, timeout=60)
+            log.info("🗓️ 주간 보고서 전송 완료 (%s)", label)
+    except Exception as e:
+        log.exception("❌ 주간 보고서 실행 중 예외: %s", e)
+
+
+# ───────────────────────────────────────────────────────────
 # 기존 저장 루틴
 # ───────────────────────────────────────────────────────────
 def scheduled_store(run_all: bool = False):
@@ -248,6 +284,14 @@ def main():
         scheduled_monthly_report,
         CronTrigger(day=1, hour=7, minute=30, timezone=SEOUL),
         id="monthly_report",
+        replace_existing=True,
+    )
+
+    # 매주 월요일 07:30 — 직전 주 트레이딩 주간 보고서(월간과 같은 날엔 둘 다 실행)
+    scheduler.add_job(
+        scheduled_weekly_report,
+        CronTrigger(day_of_week="mon", hour=7, minute=30, timezone=SEOUL),
+        id="weekly_report",
         replace_existing=True,
     )
 
