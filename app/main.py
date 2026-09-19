@@ -119,6 +119,13 @@ def scheduled_monthly_report():
         path = f"/tmp/monthly_{label}.md"
         with open(path, "w", encoding="utf-8") as f:
             f.write(md)
+        # ✅ 사이트(/reports)·앱 열람용 — Upstash trading:reports 해시에 보관 (2026-09-19)
+        try:
+            from report_store import publish_report
+            publish_report("monthly", label, md)
+            log.info("📊 월간 보고서 Redis 발행 완료 (monthly:%s)", label)
+        except Exception as pe:
+            log.exception("❌ 월간 보고서 Redis 발행 실패(텔레그램 전송은 계속): %s", pe)
         tok = os.getenv("TELEGRAM_FILEBOT_TOKEN", "").strip()
         if tok:
             with open(path, "rb") as f:
