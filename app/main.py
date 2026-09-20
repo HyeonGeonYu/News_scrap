@@ -148,19 +148,18 @@ def scheduled_weekly_report():
     import os, subprocess, requests as _rq
     try:
         log.info("🗓️ 주간 보고서 생성 실행")
-        r = subprocess.run(["python", "weekly_report.py"], capture_output=True,
+        # --publish: 생성기가 md + data(JSON, 셀별 판정)를 함께 Redis(weekly:{label})에 저장. stdout = md(텔레그램용)
+        r = subprocess.run(["python", "weekly_report.py", "--publish"], capture_output=True,
                            encoding="utf-8", timeout=1200, cwd="/app")   # Opus 2콜 포함
         md = (r.stdout or "").strip()
         if not md.startswith("#"):
             raise RuntimeError(f"보고서 생성 실패: {(r.stderr or md)[:300]}")
         head = md.splitlines()[0]
         label = head.split("—")[-1].strip().split(" ")[0]   # '2026-W37'
-        try:
-            from report_store import publish_report
-            publish_report("weekly", label, md)
+        if "published weekly:" in (r.stderr or ""):
             log.info("🗓️ 주간 보고서 Redis 발행 완료 (weekly:%s)", label)
-        except Exception as pe:
-            log.exception("❌ 주간 보고서 Redis 발행 실패(텔레그램 전송은 계속): %s", pe)
+        else:
+            log.warning("🗓️ 주간 보고서 Redis 발행 확인 안 됨(stderr): %s", (r.stderr or "")[-300:])
         tok = os.getenv("TELEGRAM_FILEBOT_TOKEN", "").strip()
         if tok:
             path = f"/tmp/weekly_{label}.md"

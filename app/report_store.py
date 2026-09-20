@@ -30,8 +30,10 @@ def _title_of(md: str, fallback: str) -> str:
     return fallback
 
 
-def publish_report(kind: str, label: str, md: str, *, title: str | None = None) -> str:
-    """보고서 1건 저장(같은 kind:label은 덮어씀). 반환: id."""
+def publish_report(kind: str, label: str, md: str, *, title: str | None = None,
+                   subtitle: str | None = None, data: dict | None = None) -> str:
+    """보고서 1건 저장(같은 kind:label은 덮어씀). 반환: id.
+    subtitle: 목록용 한 줄(기간·판정 수 등). data: 구조화 본문(주간: 셀별 판정) — 사이트/앱 네이티브 렌더용."""
     kind = (kind or "").strip().lower()
     if kind not in KINDS:
         raise ValueError(f"kind must be one of {KINDS}: {kind!r}")
@@ -48,9 +50,12 @@ def publish_report(kind: str, label: str, md: str, *, title: str | None = None) 
         "label": label,
         "title": title or _title_of(md, rid),
         "generated_at": datetime.now(KST).isoformat(timespec="seconds"),
+        "subtitle": (subtitle or "").strip(),
         "md": md,
     }
-    redis_client.hset(REPORTS_KEY, rid, json.dumps(doc, ensure_ascii=False))
+    if data:
+        doc["data"] = data
+    redis_client.hset(REPORTS_KEY, rid, json.dumps(doc, ensure_ascii=False, default=str))
     return rid
 
 
@@ -64,6 +69,7 @@ def list_reports() -> list[dict]:
         except Exception:
             continue
         d.pop("md", None)
+        d.pop("data", None)
         out.append(d)
     order = {k: i for i, k in enumerate(KINDS)}
     out.sort(key=lambda d: (d.get("label", ""), -order.get(d.get("kind"), 9)), reverse=True)
