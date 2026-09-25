@@ -18,6 +18,7 @@ from storage import (
 )
 from 세계정세분석 import analyze_and_store_world_state
 from 전일브리핑 import generate_and_store_daily_briefing, generate_and_store_rolling_briefing
+from 시장브리핑 import generate_and_store_market_briefing
 from redis_client import redis_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -68,6 +69,17 @@ def run_rolling_briefing():
         log.exception("❌ 오늘 브리핑(롤링) 중 예외: %s", e)
 
 
+def run_market_briefing():
+    """어제 종가 시세 + 전일 브리핑 → 오늘의 시장 브리핑 1편(2026-09-25). Redis market_briefings → 사이트 /briefing/<날짜>.
+    같은 날 중복·시세 미갱신(주말)은 내부에서 스킵. 실패해도 persist 흐름에 영향 없게 격리."""
+    try:
+        log.info("📈 시장 브리핑 생성 시작")
+        generate_and_store_market_briefing()
+        log.info("📈 시장 브리핑 완료")
+    except Exception as e:
+        log.exception("❌ 시장 브리핑 생성 중 예외: %s", e)
+
+
 def startup_persist_supabase():
     """
     서버 시작 시 1회 실행.
@@ -83,6 +95,7 @@ def startup_persist_supabase():
     # 일일 데이터 확정 후 세계 정세 분석 + 전일 브리핑 (기동 시엔 당일 완료분 스킵)
     run_world_state_analysis(startup=True)
     run_daily_briefing()
+    run_market_briefing()
 
 # ───────────────────────────────────────────────────────────
 # Supabase 장기 저장 루틴
@@ -101,6 +114,7 @@ def scheduled_persist_supabase():
     # 일일 데이터 확정 후 세계 정세 분석 + 전일 브리핑
     run_world_state_analysis()
     run_daily_briefing()
+    run_market_briefing()
 
 # ───────────────────────────────────────────────────────────
 # 트레이딩봇 월간 보고서 (2026-09-02 도입) — 매월 1일 07:30, 지난달 심볼×전략 평가를

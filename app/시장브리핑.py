@@ -1,0 +1,389 @@
+# 시장브리핑.py — 어제 종가 시세(chart_data) + 전일 글로벌 브리핑(news) → "오늘의 시장 브리핑" 1편 (2026-09-25)
+#
+# 왜: noil 아카이브(날짜별 세계 뉴스 요약)는 검색 수요가 거의 없고(네이버 '세계뉴스' 1,810/월),
+#     사람들이 찾는 건 '환율전망' 32,000 · '달러환율전망' 40,360 · '미국금리' 200,900 · '코스피전망' 7,100.
+#     우리만 가진 조합 = 시세 데이터와 7개국 뉴스 요약이 같은 파이프라인에 있다는 것.
+#     → 하루 한 편, 숫자가 들어간 검색형 제목의 브리핑을 /briefing/<날짜> 로 낸다.
+#
+# 실행: 06:55 persist → 세계정세 → 전일 브리핑 직후 run_market_briefing(main.py). 컨테이너 기동 시에도(같은 날 있으면 스킵).
+#       시세 갱신이 없는 날(주말·휴장 다음 날)은 직전 브리핑과 data_date가 같으면 스킵 → 중복 글 방지.
+# 입력:
+#   - Redis chart_data[currency|treasury|index|commodity] (지수정보가져오기, 매시) → 마지막 두 종가·100일 평균
+#   - Bybit 공개 API BTCUSDT 일봉(코인은 chart_data에 없음; 07시 현재가 기준)
+#   - Redis news:daily_briefing:YYYYMMDD (전일브리핑 items[5]) + 한국·미국 요약(전일브리핑._collect_day_summaries)
+# 출력:
+#   - Redis hash market_briefings[YYYY-MM-DD] = JSON {day, title, lead, sections[], keywords[], movers[], snapshot[], news_items[], ...}
+#   - Redis market_briefings:latest = YYYY-MM-DD
+#   → hyeongeonnoil/pages/briefing/[day].jsx(ISR) · 사이트맵 · RSS 가 읽는다.
+# 규칙(유사투자자문 회피): 예측·매수/매도 권유 금지. 숫자는 시세표 값만 — 코드 백스톱(_unsupported_numbers)이 검증하고
+#       위반 시 1회 재생성, 그래도 남으면 numbers_ok=False 로 저장(페이지는 표의 원 데이터를 항상 함께 보인다).
+# 텔레그램: BRIEFING_TG_CHANNEL(예: @noil_market)이 env에 있으면 TELEGRAM_FILEBOT_TOKEN 봇으로 채널에 제목+리드+링크 게시.
+# 수동: python 시장브리핑.py [--dry] [--force]
+import os
+import re
+import sys
+import json
+import logging
+from datetime import datetime, timedelta, date as _date
+
+import requests
+from pytz import timezone
+
+import llm  # 구독 Claude(claude -p) → 실패 시 OpenAI 폴백
+from redis_client import redis_client
+
+log = logging.getLogger(__name__)
+SEOUL = timezone("Asia/Seoul")
+HASH = "market_briefings"
+LATEST = "market_briefings:latest"
+SITE = "https://hyeongeonnoil.com"
+STALE_DAYS = 5  # 마지막 종가 날짜가 이보다 오래됐으면 표에서 제외(커피처럼 수집이 멈춘 시리즈)
+WEEKDAY_KO = "월화수목금토일"
+
+# (카테고리, 이름, 표시명, 단위, 소수 자릿수) — chart_data 해시의 실제 키 기준(2026-09-25 확인)
+SYMBOLS = [
+    ("currency", "usd_krw", "달러/원 환율", "원", 1),
+    ("currency", "dxy", "달러인덱스", "", 2),
+    ("currency", "usd_jpy", "달러/엔 환율", "엔", 2),
+    ("treasury", "us-t10", "미국 10년물 금리", "%", 3),
+    ("treasury", "kr-t3", "한국 3년물 금리", "%", 3),
+    ("index", "kospi200", "코스피200", "", 2),
+    ("index", "nasdaq100", "나스닥100", "", 2),
+    ("index", "nikkei225", "닛케이225", "", 2),
+    ("index", "hangseng", "항셍지수", "", 2),
+    ("index", "dax", "독일 DAX", "", 2),
+    ("commodity", "crude_oil", "WTI 원유", "달러", 2),
+    ("commodity", "gold", "금", "달러", 2),
+    ("commodity", "natural_gas", "천연가스", "달러", 3),
+]
+SECTIONS = [
+    ("fx_rates", "환율·금리"),
+    ("equities", "증시"),
+    ("commodities_crypto", "원자재·코인"),
+    ("news_link", "뉴스와 시장"),
+    ("watch_today", "오늘 볼 것"),
+]
+
+SYSTEM = (
+    "너는 한국 개인투자자를 위한 '아침 시장 브리핑' 작성자다. 입력은 ① 어제 종가 기준 시세표 ② 어제 세계 핵심 뉴스 5개 "
+    "③ 한국·미국 뉴스 요약이다.\n"
+    "규칙:\n"
+    "1. 숫자는 시세표에 있는 값만 쓴다(반올림은 허용). 표에 없는 수치, 예상 수치, 과거 수치를 만들지 마라. "
+    "숫자는 '1,389.2'처럼 아라비아 숫자와 쉼표로만 쓰고 '만·억' 단위 표기는 쓰지 마라.\n"
+    "2. 전망·추천 금지: '오를 것이다', '매수 기회' 같은 문장 대신 '주목할 변수', '확인할 지표'로 쓴다. "
+    "이 글은 정보 정리이고 투자 권유가 아니다.\n"
+    "3. 제목(title)은 검색용이다: 어제 가장 크게 움직인 지표 1~2개의 방향과 숫자 + '{M월 D일} 시장 브리핑'. 40자 이내. "
+    "예: '달러 환율 1,389원 상승·미 10년물 4.12%: 9월 25일 시장 브리핑'.\n"
+    "4. lead는 2~3문장: 어제 시장의 한 줄 요약과 오늘 볼 것 하나.\n"
+    "5. sections는 정확히 5개, key 순서 fx_rates(환율·금리) → equities(증시) → commodities_crypto(원자재·코인) → "
+    "news_link(뉴스와 시장: 핵심 뉴스가 어느 자산에 어떻게 연결되는지, 확실한 인과만) → "
+    "watch_today(오늘 볼 것: 입력에 근거가 있는 일정·변수만, 없으면 '확인할 지표' 위주). "
+    "각 3~6문장, 한국어 평서문, 이모지·머리기호 금지.\n"
+    "6. keywords는 검색어 형태 5~8개(예: '달러 환율', '미국 10년물 금리', '코스피200', '나스닥100', 'WTI 원유').\n"
+    "7. movers는 등락률 절대값이 큰 순으로 3~5개(label은 시세표 표시명 그대로, direction은 up/down/flat, pct는 표의 등락률).\n"
+    "반드시 한국어. 시세표에 없는 자산은 언급하지 마라."
+)
+
+
+def _schema() -> dict:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "title": {"type": "string"},
+            "lead": {"type": "string"},
+            "sections": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "key": {"type": "string", "enum": [k for k, _ in SECTIONS]},
+                        "body": {"type": "string"},
+                    },
+                    "required": ["key", "body"],
+                },
+            },
+            "keywords": {"type": "array", "items": {"type": "string"}},
+            "movers": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "label": {"type": "string"},
+                        "direction": {"type": "string", "enum": ["up", "down", "flat"]},
+                        "pct": {"type": "number"},
+                    },
+                    "required": ["label", "direction", "pct"],
+                },
+            },
+        },
+        "required": ["title", "lead", "sections", "keywords", "movers"],
+    }
+
+
+# ── 시세 스냅샷 ───────────────────────────────────────────────────────────────
+def _load_cat(cat: str) -> dict:
+    raw = redis_client.hget("chart_data", cat)
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw.decode() if isinstance(raw, (bytes, bytearray)) else raw)
+    except Exception:
+        return {}
+
+
+def _btc_row(today: _date) -> dict | None:
+    """Bybit 일봉은 UTC 기준(09:00 KST 시작). 07시 실행 시 list[0]은 진행 중 캔들 → 현재가, list[1] 종가 = 전일 09시 기준."""
+    try:
+        r = requests.get(
+            "https://api.bybit.com/v5/market/kline",
+            params={"category": "linear", "symbol": "BTCUSDT", "interval": "D", "limit": 3},
+            timeout=8,
+        )
+        lst = ((r.json().get("result") or {}).get("list")) or []
+        if len(lst) < 2:
+            return None
+        cur, prev = float(lst[0][4]), float(lst[1][4])
+        chg = cur - prev
+        return {
+            "key": "btcusdt", "label": "비트코인(BTC/USDT)", "unit": "달러", "dec": 0,
+            "date": today.isoformat(), "prev_date": (today - timedelta(days=1)).isoformat(),
+            "close": round(cur), "prev_close": round(prev), "chg": round(chg), "pct": round(chg / prev * 100, 2) if prev else 0.0,
+            "ma100": None, "vs_ma_pct": None, "note": "오전 7시 현재가 기준, 전일은 09시 일봉 종가",
+        }
+    except Exception as e:
+        log.warning("⚠️ BTC 시세 조회 실패: %s", e)
+        return None
+
+
+def market_snapshot(today: _date) -> list[dict]:
+    out, cache = [], {}
+    today_s = today.isoformat()
+    for cat, name, label, unit, dec in SYMBOLS:
+        d = cache.setdefault(cat, _load_cat(cat))
+        # 오늘 날짜 행은 진행 중 캔들(매시 갱신)이라 제외 → 실행 시각과 무관하게 "어제 종가"가 된다.
+        rows = [r for r in (((d.get(name) or {}).get("data")) or [])
+                if r.get("close") is not None and r.get("date") and str(r["date"]) < today_s]
+        if len(rows) < 2:
+            continue
+        last, prev = rows[-1], rows[-2]
+        try:
+            last_date = datetime.strptime(last["date"], "%Y-%m-%d").date()
+        except Exception:
+            continue
+        if (today - last_date).days > STALE_DAYS:
+            log.info("⏭️ %s 마지막 종가 %s — 오래돼 제외", name, last["date"])
+            continue
+        close, pclose = float(last["close"]), float(prev["close"])
+        chg = close - pclose
+        ma = last.get("ma100")
+        row = {
+            "key": name, "label": label, "unit": unit, "dec": dec,
+            "date": last["date"], "prev_date": prev["date"],
+            "close": round(close, dec), "prev_close": round(pclose, dec),
+            "chg": round(chg, dec), "pct": round(chg / pclose * 100, 2) if pclose else 0.0,
+            "ma100": round(float(ma), dec) if ma is not None else None,
+            "vs_ma_pct": round((close / float(ma) - 1) * 100, 2) if ma else None,
+        }
+        if unit == "%":
+            row["chg_bp"] = round(chg * 100, 1)  # 금리는 bp로도
+        out.append(row)
+    btc = _btc_row(today)
+    if btc:
+        out.append(btc)
+    return out
+
+
+def _market_table(snapshot: list[dict]) -> str:
+    lines = []
+    for s in snapshot:
+        dec, u = s["dec"], s["unit"]
+        if u == "%":
+            line = f"- {s['label']}: {s['close']:.3f}% ({s['date']} 종가, 전일 {s['prev_close']:.3f}% → {s['chg_bp']:+.1f}bp)"
+            if s.get("ma100") is not None:
+                line += f" | 100일 평균 {s['ma100']:.3f}%"
+        else:
+            line = (f"- {s['label']}: {s['close']:,.{dec}f}{u} ({s['date']} 종가, 전일 {s['prev_close']:,.{dec}f} → "
+                    f"{s['chg']:+,.{dec}f}, {s['pct']:+.2f}%)")
+            if s.get("ma100") is not None:
+                line += f" | 100일 평균 {s['ma100']:,.{dec}f}({s['vs_ma_pct']:+.2f}%)"
+        if s.get("note"):
+            line += f" | {s['note']}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
+# ── 뉴스 입력 ─────────────────────────────────────────────────────────────────
+def _news_input(news_day: str) -> tuple[list, str, str]:
+    raw = redis_client.get(f"news:daily_briefing:{news_day.replace('-', '')}")
+    items = []
+    if raw:
+        try:
+            items = json.loads(raw.decode() if isinstance(raw, (bytes, bytearray)) else raw).get("items", []) or []
+        except Exception:
+            items = []
+    ko = us = ""
+    try:
+        from 전일브리핑 import _collect_day_summaries
+        per_country = _collect_day_summaries(news_day)
+        ko = (per_country.get("Korea") or "")[:1800]
+        us = (per_country.get("USA") or "")[:1800]
+    except Exception as e:
+        log.warning("⚠️ 국가별 요약 조회 실패(뉴스 5개만 사용): %s", e)
+    return items, ko, us
+
+
+# ── 숫자 백스톱 ───────────────────────────────────────────────────────────────
+NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+SMALL_OK = {100.0, 200.0, 225.0, 50.0, 30.0, 2025.0, 2026.0}  # 지수 이름·100일평균·연도
+
+
+def _allowed_values(snapshot: list[dict]) -> list[float]:
+    vals = []
+    for s in snapshot:
+        for k in ("close", "prev_close", "chg", "pct", "ma100", "vs_ma_pct", "chg_bp"):
+            v = s.get(k)
+            if v is not None:
+                vals.append(abs(float(v)))
+    return vals
+
+
+def _unsupported_numbers(text: str, allowed: list[float]) -> list[str]:
+    """본문의 숫자 중 시세표 값의 반올림으로 설명되지 않는 것. 31 이하 정수(날짜·개수)와 지수 이름 숫자는 허용."""
+    bad = []
+    for m in NUM_RE.finditer(text):
+        tok = m.group(0).replace(",", "")
+        try:
+            f = float(tok)
+        except ValueError:
+            continue
+        dec = len(tok.split(".")[1]) if "." in tok else 0
+        if (dec == 0 and f <= 31) or f in SMALL_OK:
+            continue
+        tol = 0.5 * 10 ** (-dec) + 1e-9
+        if any(abs(f - a) <= tol for a in allowed):
+            continue
+        bad.append(m.group(0))
+    return sorted(set(bad))
+
+
+def _all_text(data: dict) -> str:
+    return "\n".join([data.get("title", ""), data.get("lead", "")] + [s.get("body", "") for s in data.get("sections", [])])
+
+
+# ── 생성 ──────────────────────────────────────────────────────────────────────
+def generate_market_briefing(today: _date, news_day: str, snapshot: list[dict] | None = None) -> dict:
+    snapshot = snapshot if snapshot is not None else market_snapshot(today)
+    if len(snapshot) < 5:
+        raise RuntimeError(f"시세 입력 부족 ({len(snapshot)}종)")
+    items, ko, us = _news_input(news_day)
+    label = f"{today.month}월 {today.day}일({WEEKDAY_KO[today.weekday()]})"
+    news_lines = [f"{i.get('rank', '')}. [{i.get('category', '')}] {i.get('title', '')} — {i.get('summary', '')}" for i in items]
+    user = (
+        f"오늘 날짜: {today.isoformat()} {label} 오전 7시 (KST)\n\n"
+        f"[시세표 — 어제 종가 기준]\n{_market_table(snapshot)}\n\n"
+        f"[어제 세계 핵심 뉴스 5개 ({news_day})]\n" + ("\n".join(news_lines) or "(없음)") +
+        f"\n\n[한국 뉴스 요약]\n{ko or '(없음)'}\n\n[미국 뉴스 요약]\n{us or '(없음)'}"
+    )
+    allowed = _allowed_values(snapshot)
+    log.info("📈 시장 브리핑 입력: day=%s 시세 %d종 뉴스 %d건 news_day=%s", today, len(snapshot), len(items), news_day)
+    data = llm.structured("market_briefing", user, _schema(), system=SYSTEM)
+    bad = _unsupported_numbers(_all_text(data), allowed)
+    if bad:
+        log.warning("⚠️ 시세표에 없는 숫자 %s → 1회 재생성", bad)
+        fix = f"\n\n[수정 요청] 직전 초안에 시세표에 없는 숫자가 있었다: {', '.join(bad)}. 시세표의 숫자만 사용해 다시 작성하라."
+        data = llm.structured("market_briefing", user + fix, _schema(), system=SYSTEM)
+        bad = _unsupported_numbers(_all_text(data), allowed)
+        if bad:
+            log.warning("⚠️ 재생성 후에도 남은 숫자 %s — numbers_ok=False 로 저장", bad)
+    by_key = {s.get("key"): s.get("body", "") for s in data.get("sections", [])}
+    sections = [{"key": k, "heading": h, "body": (by_key.get(k) or "").strip()} for k, h in SECTIONS]
+    data_date = max((s["date"] for s in snapshot if s["key"] != "btcusdt"), default=today.isoformat())
+    return {
+        "day": today.isoformat(),
+        "generated_at": datetime.now(SEOUL).isoformat(),
+        "data_date": data_date,
+        "news_day": news_day,
+        "title": (data.get("title") or "").strip(),
+        "lead": (data.get("lead") or "").strip(),
+        "sections": sections,
+        "keywords": [k.strip() for k in data.get("keywords", []) if k and k.strip()][:8],
+        "movers": data.get("movers", [])[:5],
+        "snapshot": snapshot,
+        "news_items": [{"title": i.get("title", ""), "category": i.get("category", "")} for i in items],
+        "numbers_ok": not bad,
+        "unsupported_numbers": bad,
+    }
+
+
+# ── 저장·알림·진입점 ──────────────────────────────────────────────────────────
+def _dec(v):
+    return v.decode() if isinstance(v, (bytes, bytearray)) else v
+
+
+def latest_briefing() -> dict | None:
+    day = _dec(redis_client.get(LATEST))
+    if not day:
+        return None
+    raw = redis_client.hget(HASH, day)
+    try:
+        return json.loads(_dec(raw)) if raw else None
+    except Exception:
+        return None
+
+
+def already_done(day: str) -> bool:
+    return bool(redis_client.hexists(HASH, day))
+
+
+def store_market_briefing(b: dict):
+    redis_client.hset(HASH, b["day"], json.dumps(b, ensure_ascii=False))
+    redis_client.set(LATEST, b["day"])
+
+
+def _notify_telegram(b: dict):
+    tok = (os.getenv("TELEGRAM_FILEBOT_TOKEN") or "").strip()
+    chat = (os.getenv("BRIEFING_TG_CHANNEL") or "").strip()
+    if not tok or not chat:
+        return
+    text = f"{b['title']}\n\n{b['lead']}\n\n{SITE}/briefing/{b['day']}"
+    try:
+        requests.post(f"https://api.telegram.org/bot{tok}/sendMessage", json={"chat_id": chat, "text": text}, timeout=10)
+    except Exception as e:
+        log.warning("⚠️ 브리핑 텔레그램 전송 실패: %s", e)
+
+
+def generate_and_store_market_briefing(force: bool = False, dry: bool = False) -> dict | None:
+    """스케줄러/수동 진입점. 같은 날 중복·시세 미갱신(주말)은 스킵. force=True로 강제."""
+    now = datetime.now(SEOUL)
+    today = now.date()
+    day = today.isoformat()
+    if not force and already_done(day):
+        log.info("⏭️ 시장 브리핑 이미 생성됨 (day=%s) — 스킵", day)
+        return None
+    snapshot = market_snapshot(today)
+    data_date = max((s["date"] for s in snapshot if s["key"] != "btcusdt"), default=None)
+    prev = latest_briefing()
+    if not force and prev and data_date and prev.get("data_date") == data_date:
+        log.info("⏭️ 시세 갱신 없음(data_date=%s, 직전 브리핑 %s와 동일) — 스킵", data_date, prev.get("day"))
+        return None
+    from 전일브리핑 import _target_day
+    b = generate_market_briefing(today, _target_day(now), snapshot)
+    if dry:
+        print(json.dumps(b, ensure_ascii=False, indent=1))
+        return b
+    store_market_briefing(b)
+    _notify_telegram(b)
+    log.info("📈 시장 브리핑 저장 day=%s numbers_ok=%s title=%s", b["day"], b["numbers_ok"], b["title"])
+    return b
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    out = generate_and_store_market_briefing(force="--force" in sys.argv, dry="--dry" in sys.argv)
+    if out is None:
+        print("(스킵됨)")
+    elif "--dry" not in sys.argv:
+        print(f"저장됨: {SITE}/briefing/{out['day']} — {out['title']}")
