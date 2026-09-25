@@ -46,3 +46,19 @@ docker run -d --name news-scrap `
 #    히스토리(news:daily_briefing:*)까지 저장하며 롤링을 대체. 모델: CLAUDE_MODEL_BRIEFING_ROLLING.
 #    프론트(hyeongeonnoil GlobalBriefingCard)는 rolling 여부로 "오늘/전일 글로벌 브리핑" 제목·갱신 시각 표시.
 
+# ── 시장 브리핑 (2026-09-25, app/시장브리핑.py) ────────────────────────────────
+# 왜: 아카이브(날짜별 세계 뉴스 요약)는 검색 수요가 없고(네이버 '세계뉴스' 1,810/월), 사람들이 찾는 건
+#     환율전망 32,000·달러환율전망 40,360·미국금리 200,900·코스피전망 7,100. 시세와 뉴스 요약이 같은 파이프라인에
+#     있는 이 서비스만의 조합으로, 하루 한 편 숫자 들어간 검색형 제목의 브리핑을 만든다.
+# 흐름: 06:55 persist → 세계정세 → 전일 브리핑 → run_market_briefing (기동 시에도, 같은 날 있으면 스킵)
+#   입력 = chart_data[currency|treasury|index|commodity] 마지막 두 종가(오늘 날짜 행 제외=어제 종가, 5일 이상 오래된
+#          시리즈 제외) + Bybit BTCUSDT(07시 현재가) + news:daily_briefing:<전일> items 5 + 한국·미국 요약
+#   출력 = Redis hash market_briefings[YYYY-MM-DD] {title, lead, sections[5], keywords, movers, snapshot, news_items, numbers_ok}
+#          + market_briefings:latest → hyeongeonnoil /briefing/<날짜>(ISR)·/briefing·사이트맵·RSS
+#   모델 role=market_briefing (CLAUDE_MODEL_MARKET_BRIEFING 로 덮어쓰기 가능)
+# 규칙: 예측·매수/매도 권유 금지(유사투자자문 회피). 숫자는 시세표 값만 — 코드가 본문 숫자를 검증해 표에 없는
+#       숫자가 있으면 1회 재생성, 그래도 남으면 numbers_ok=False로 저장(페이지는 표의 원 데이터를 항상 함께 보임).
+# 주말·휴장 다음 날: 직전 브리핑과 data_date(시세표 최신 날짜)가 같으면 스킵 → 같은 내용 반복 발행 방지.
+# 텔레그램 채널: env BRIEFING_TG_CHANNEL(@채널명, 파일봇을 관리자로 추가) 있으면 제목+리드+링크 게시. 없으면 무시.
+# 수동: docker exec -w /app news-scrap python 시장브리핑.py --dry   (저장 없이 출력) / --force (같은 날 재생성)
+
