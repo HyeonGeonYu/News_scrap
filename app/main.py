@@ -158,6 +158,20 @@ def scheduled_monthly_report():
 # 트레이딩봇 주간 보고서 (2026-09-19 도입) — 매주 월요일 07:30, 직전 주(월~일) 셀별 실측 +
 # 구독 Opus 셀별 평가(조기 경보). 텔레그램 파일봇 + Redis(trading:reports weekly:{label}) 발행.
 # ───────────────────────────────────────────────────────────
+def scheduled_perf_report():
+    """성적표(perf:latest) 갱신 — 텔레그램 없음, Redis 발행만 (2026-09-26)."""
+    import subprocess
+    try:
+        r = subprocess.run(["python", "perf_report.py", "--publish"], capture_output=True,
+                           encoding="utf-8", timeout=300, cwd="/app")
+        if "published perf:latest" in (r.stderr or ""):
+            log.info("📈 성적표 발행 완료 (perf:latest)")
+        else:
+            log.warning("📈 성적표 발행 확인 안 됨: %s", (r.stderr or r.stdout or "")[-300:])
+    except Exception as e:
+        log.exception("❌ 성적표 실행 중 예외: %s", e)
+
+
 def scheduled_weekly_report():
     import os, subprocess, requests as _rq
     try:
@@ -297,6 +311,14 @@ def main():
         scheduled_monthly_report,
         CronTrigger(day=1, hour=7, minute=30, timezone=SEOUL),
         id="monthly_report",
+        replace_existing=True,
+    )
+
+    # 매일 07:40 — 성적표(주별·월별 실현·수익률 vs 월 2%) 갱신 → 사이트/앱 perf:latest (persist 06:55 이후 에쿼티 반영)
+    scheduler.add_job(
+        scheduled_perf_report,
+        CronTrigger(hour=7, minute=40, timezone=SEOUL),
+        id="perf_report",
         replace_existing=True,
     )
 
